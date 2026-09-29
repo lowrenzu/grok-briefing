@@ -6,8 +6,128 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="theme-color" content="#120e18" />
   <title>Grokbot</title>
+  <style>
+    :root { color-scheme: dark; }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; min-height: 100%; background: #120e18; color: #efe8f8;
+      font: 15px/1.4 ui-sans-serif, system-ui, -apple-system, sans-serif; }
+    header { position: sticky; top: 0; z-index: 2; display: flex; justify-content: space-between;
+      align-items: center; gap: 12px; padding: 14px 16px calc(10px + env(safe-area-inset-top));
+      background: rgba(18,14,24,.92); backdrop-filter: blur(12px); border-bottom: 1px solid #2a2233; }
+    header b { font-size: 18px; }
+    header small { display: block; color: #9b8baf; font-size: 11px; font-weight: 500; }
+    .pill { display: flex; align-items: center; gap: 7px; font-size: 12px; color: #d7c8ee;
+      border: 1px solid #3a3148; border-radius: 999px; padding: 6px 10px; }
+    .dot { width: 8px; height: 8px; border-radius: 99px; background: #7a6a88; }
+    .dot.on { background: #5ee0a8; box-shadow: 0 0 8px #5ee0a8; }
+    main { padding: 12px 14px calc(24px + env(safe-area-inset-bottom)); display: grid; gap: 12px; }
+    .agent { background: #1a1522; border: 1px solid #2e2638; border-radius: 14px; padding: 11px 12px; }
+    .agent .top { display: flex; justify-content: space-between; gap: 8px; }
+    .status { font-size: 11px; letter-spacing: .05em; text-transform: uppercase; color: #cbb6f2; }
+    .agent small { color: #9b8baf; }
+    .row { display: grid; grid-template-columns: 64px 1fr; gap: 8px; padding: 10px 0;
+      border-bottom: 1px solid #241c2c; font-size: 13px; }
+    .row em { color: #8f7fa8; font-style: normal; }
+    .kind { color: #73b8ed; text-transform: uppercase; font-size: 10px; letter-spacing: .05em; }
+    .kind.task { color: #60d2b0; }
+    .kind.system { color: #e9ad79; }
+    h2 { margin: 8px 0 0; font-size: 13px; color: #9b8baf; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; }
+  </style>
 </head>
 <body>
-<p>placeholder</p>
+  <header>
+    <div><b>grokbot.</b><small id="meta">simulateur téléphone</small></div>
+    <div class="pill"><span class="dot on" id="dot"></span><span id="state">live local</span></div>
+  </header>
+  <main>
+    <section>
+      <h2>Agents</h2>
+      <div id="agents"></div>
+    </section>
+    <section>
+      <h2>Journal</h2>
+      <div id="feed"></div>
+    </section>
+  </main>
+  <script>
+    const AGENTS = [
+      { id: "core", name: "Grok Core", role: "Orchestrateur", category: "orchestration", status: "working", model: "Grok 4.6" },
+      { id: "atlas", name: "Atlas", role: "Recherche", category: "research", status: "working", model: "Grok 4.6" },
+      { id: "nova", name: "Nova", role: "Rédaction", category: "orchestration", status: "working", model: "Grok 4.6" },
+      { id: "scout", name: "Scout", role: "Veille", category: "research", status: "active", model: "Grok 4.6" },
+      { id: "sage", name: "Sage", role: "Analyse", category: "research", status: "active", model: "Grok 4.6" },
+      { id: "pixel", name: "Pixel", role: "Design", category: "execution", status: "active", model: "Grok 4.6" },
+      { id: "cipher", name: "Cipher", role: "Développement", category: "development", status: "working", model: "Grok 4.6" },
+      { id: "echo", name: "Echo", role: "Support", category: "execution", status: "active", model: "Grok 4.6" },
+      { id: "flux", name: "Flux", role: "Automatisation", category: "development", status: "working", model: "Grok 4.6" },
+      { id: "nexus", name: "Nexus", role: "Coordination", category: "orchestration", status: "active", model: "Grok 4.6" },
+      { id: "pulse", name: "Pulse", role: "Monitoring", category: "execution", status: "idle", model: "Grok 4.6" },
+      { id: "vector", name: "Vector", role: "Données", category: "development", status: "active", model: "Grok 4.6" }
+    ];
+    const TEMPLATES = [
+      { source: "atlas", target: "core", message: "8 sources analysées et transmises", kind: "message" },
+      { source: "core", target: "nova", message: "Tâche de rédaction validée", kind: "task" },
+      { source: "cipher", target: "flux", message: "Workflow déployé avec succès", kind: "system" },
+      { source: "scout", target: "atlas", message: "3 nouvelles sources pertinentes détectées", kind: "message" },
+      { source: "nova", target: "core", message: "Synthèse générée et transmise", kind: "task" },
+      { source: "sage", target: "nexus", message: "Résultats de l’analyse partagés", kind: "message" },
+      { source: "pixel", target: "nova", message: "Ressources visuelles prêtes", kind: "task" },
+      { source: "pulse", target: "core", message: "Vérification du réseau terminée", kind: "system" },
+      { source: "echo", target: "core", message: "Nouvelle demande utilisateur qualifiée", kind: "message" },
+      { source: "vector", target: "sage", message: "Jeu de données synchronisé", kind: "message" }
+    ];
+    const names = Object.fromEntries(AGENTS.map(a => [a.id, a.name]));
+    const agentsEl = document.getElementById("agents");
+    const feedEl = document.getElementById("feed");
+    const stateEl = document.getElementById("state");
+    const metaEl = document.getElementById("meta");
+    const dotEl = document.getElementById("dot");
+    let n = 0;
+    function paintAgents(list) {
+      agentsEl.innerHTML = list.map(a =>
+        `<div class="agent"><div class="top"><b>${a.name}</b><span class="status">${a.status}</span></div><small>${a.role} · ${a.model}</small></div>`
+      ).join("");
+    }
+    function addEvent(ev) {
+      const row = document.createElement("div");
+      row.className = "row";
+      const when = new Date(ev.timestamp || Date.now()).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+      row.innerHTML = `<em>${when}</em><div><span class="kind ${ev.kind || ""}">${ev.kind || "message"}</span><div>${names[ev.source] || ev.source} → ${names[ev.target] || ev.target} — ${ev.message}</div></div>`;
+      feedEl.prepend(row);
+      while (feedEl.children.length > 80) feedEl.lastChild.remove();
+    }
+    function tick() {
+      const t = TEMPLATES[n++ % TEMPLATES.length];
+      addEvent({ ...t, timestamp: Date.now(), duration: 18 + (n * 7) % 47 });
+    }
+    function startSim() {
+      paintAgents(AGENTS);
+      stateEl.textContent = "live local";
+      dotEl.className = "dot on";
+      metaEl.textContent = "simulateur dans le téléphone";
+      tick();
+      setInterval(tick, 2800);
+    }
+    const wsUrl = new URLSearchParams(location.search).get("ws");
+    if (wsUrl) {
+      metaEl.textContent = wsUrl;
+      const ws = new WebSocket(wsUrl);
+      ws.onopen = () => {
+        stateEl.textContent = "passerelle";
+        dotEl.className = "dot on";
+        ws.send(JSON.stringify({ type: "subscribe", channel: "grokbot.network" }));
+      };
+      ws.onmessage = (msg) => {
+        let data; try { data = JSON.parse(msg.data); } catch { return; }
+        if (data.type === "snapshot" && Array.isArray(data.agents)) paintAgents(data.agents);
+        if (data.type === "interaction") addEvent(data);
+      };
+      ws.onerror = startSim;
+      ws.onclose = () => { if (!feedEl.children.length) startSim(); };
+      setTimeout(() => { if (!feedEl.children.length && !agentsEl.children.length) startSim(); }, 1800);
+    } else {
+      startSim();
+    }
+  </script>
 </body>
 </html>
