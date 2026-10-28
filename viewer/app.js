@@ -61,6 +61,8 @@
   const orbit = { cx: 0, cy: 0, rx: 0, ry: 0, inner: 0, tilt: .84 };
   // Niveau de lecture : « main » = notes principales, « detail » = notes spécifiques.
   let level = "themes";
+  // Cercle quitté en ouvrant la vue d'ensemble : un seul clic sur NOTES le restitue.
+  let overviewReturn = null;
   let themeFilter = null;
   let focusId = null;
   const pulseTimes = new Map();
@@ -311,6 +313,10 @@
     projectedNodes = ordered;
 
     const labelRequests = [];
+    // Les 10 notes les mieux reliées gardent leur nom visible dans la vue d'ensemble.
+    const overviewLabelIds = graphOverview
+      ? new Set([...displayed].sort((a, b) => (b.connections || 0) - (a.connections || 0)).slice(0, 10).map((node) => node.id))
+      : new Set();
 
     for (const { node, point } of ordered) {
       const isHovered = hoveredId === node.id;
@@ -352,8 +358,11 @@
       const baseAlpha = emphasis ? .98 : inTheme || level === "detail" ? .9 : graphOverview ? .55 : .2;
       drawPill(point.x, point.y, radius, point.alpha * baseAlpha, emphasis ? 1.15 : 1, radius * (emphasis ? 2.05 : 1.62));
 
-      const labelAlpha = point.alpha * (emphasis ? 1 : inTheme || level === "detail" ? .96 : .45);
+      const labelAlpha = point.alpha * (emphasis ? 1 : inTheme || level === "detail" ? .96 : graphOverview ? .8 : .45);
+      // Vue d'ensemble : les notes les mieux reliées portent leur nom, les autres
+      // apparaissent au survol — sinon 25 pastilles restaient anonymes.
       const shouldLabel = emphasis || labelIds.has(node.id) || inTheme
+        || (graphOverview && (ordered.length <= 12 || overviewLabelIds.has(node.id)))
         || (level === "detail" && (ordered.length <= 14 || point.z > .15));
       if (shouldLabel && labelAlpha > .05) {
         const anchor = labelAnchor(point, radius);
@@ -737,6 +746,7 @@
 
   // Second cercle : les notes du thème choisi, présentées comme les thèmes eux-mêmes.
   function openTheme(label) {
+    overviewReturn = null;
     level = "main";
     themeFilter = label;
     focusId = null;
@@ -763,6 +773,7 @@
 
   // Ouvre le second niveau : les notes spécifiques liées à une note principale.
   function openDetail(id) {
+    overviewReturn = null;
     const node = graph.nodes.find((item) => item.id === id);
     if (!node) return;
     level = "detail";
@@ -774,6 +785,9 @@
     textIds = new Set([id]);
     focusedIds = new Set([id, ...neighborsOf(id)]);
     syncGraphToggle();
+    const sector = themeFilter || node.theme || "TOUS LES THÈMES";
+    const sectorEl = $("#sectorLabel");
+    if (sectorEl) sectorEl.textContent = sector;
     renderSourcePanel(node, []);
     const count = Math.max(0, visibleNodes().length - 1);
     updateStageHint(`${node.label.toUpperCase()} · CLIQUEZ SUR UNE NOTE LIÉE POUR LA LIRE`, (themeFilter || "THÈMES").toUpperCase());
@@ -782,6 +796,7 @@
   }
 
   function backToMain() {
+    overviewReturn = null;
     // Retour au premier cercle : les thèmes.
     level = "themes";
     themeFilter = null;
@@ -809,6 +824,14 @@
     }
     const node = graph.nodes.find((item) => item.id === id);
     if (!node) return;
+    // Vue d'ensemble : un clic sur une étoile ouvre sa note.
+    if (graphOverview) {
+      graphOverview = false;
+      overviewReturn = null;
+      syncGraphToggle();
+      openDetail(id);
+      return;
+    }
     // Premier niveau : un clic ouvre les notes spécifiques. Second niveau : un clic sur
     // la note principale refermée ramène à la vue d'ensemble.
     if (level === "main" && !searchTerm && !graphOverview) {
@@ -823,6 +846,7 @@
     }
     selectedId = id;
     graphOverview = false;
+    overviewReturn = null;
     labelIds = new Set([id]);
     textIds = new Set([id]);
     clusterIds = Array.isArray(options.clusterIds) ? options.clusterIds : [];
@@ -879,8 +903,9 @@
   }
 
   function toggleGraphOverview() {
-    graphOverview = !graphOverview;
-    if (graphOverview) {
+    if (!graphOverview) {
+      overviewReturn = { level, themeFilter, focusId, selectedId };
+      graphOverview = true;
       level = "themes";
       themeFilter = null;
       focusId = null;
@@ -889,16 +914,31 @@
       labelIds.clear();
       textIds.clear();
       clusterIds = [];
-      updateStageHint("CONSTELLATION EN ORBITE · CLIQUEZ SUR UNE ÉTOILE POUR L’EXPLORER");
-      graphStatus.textContent = "Vue du graphe de notes";
+      $("#sectorLabel").textContent = "TOUTES LES NOTES";
+      updateStageHint("TOUTES VOS NOTES · CLIQUEZ SUR UNE ÉTOILE POUR L’EXPLORER");
+      graphStatus.textContent = `${graph.nodes.length} notes · vue d’ensemble`;
     } else {
-      selectedId = null;
-      focusedIds.clear();
+      // On revient là où l’on était : un seul clic suffit pour revoir ses notes.
+      graphOverview = false;
+      const back = overviewReturn || { level: "themes", themeFilter: null, focusId: null, selectedId: null };
+      overviewReturn = null;
+      level = back.level;
+      themeFilter = back.themeFilter;
+      focusId = null;
+      selectedId = back.focusId !== null && back.focusId !== undefined ? back.focusId : null;
+      clusterIds = [];
       labelIds.clear();
       textIds.clear();
-      clusterIds = [];
-      updateStageHint("NOTES PRINCIPALES · CLIQUEZ SUR UNE NOTE POUR VOIR SES NOTES SPÉCIFIQUES");
-      graphStatus.textContent = "Réseau des notes masqué";
+      if (back.focusId !== null && back.focusId !== undefined && graph.nodes.some((node) => node.id === back.focusId)) {
+        openDetail(back.focusId);
+        return;
+      }
+      if (themeFilter) {
+        openTheme(themeFilter);
+        return;
+      }
+      backToMain();
+      return;
     }
     syncGraphToggle();
     draw();
