@@ -21,7 +21,7 @@
   const core = $("#jarvisCore");
   // Géométrie du décor : le cœur doit rester posé au-dessus du projecteur, quelle que
   // soit la taille de la fenêtre. Ces valeurs sont celles de command-room.jpg.
-  const BACKDROP = { width: 1376, height: 768, coreX: 688, coreY: 332, coreSize: 380 };
+  const BACKDROP = { width: 1376, height: 768, coreX: 688, coreY: 332, coreSize: 300 };
 
   let graph = window.JARVIS_GRAPH && Array.isArray(window.JARVIS_GRAPH.nodes)
     ? window.JARVIS_GRAPH
@@ -107,7 +107,10 @@
     // `background-size: cover` : le décor est agrandi du plus grand des deux rapports,
     // puis centré. On applique la même transformation au cadre du cœur.
     const scale = Math.max(window.innerWidth / BACKDROP.width, window.innerHeight / BACKDROP.height);
-    const diameter = Math.max(250, Math.min(560, BACKDROP.coreSize * scale));
+    // Plafond lié à la largeur de l'écran : sur téléphone, le cœur reste harmonieux
+    // au lieu de manger toute la largeur disponible.
+    const ceiling = Math.min(470, window.innerWidth * 0.74);
+    const diameter = Math.max(170, Math.min(ceiling, BACKDROP.coreSize * scale));
     coreFrame.style.setProperty("--frame-width", `${BACKDROP.width * scale}px`);
     coreFrame.style.setProperty("--frame-height", `${BACKDROP.height * scale}px`);
     core.style.setProperty("--core-x", `${BACKDROP.coreX * scale}px`);

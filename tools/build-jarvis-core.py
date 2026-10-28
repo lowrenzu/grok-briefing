@@ -216,10 +216,10 @@ def build_light() -> None:
 
 LAYERS = (
     # (fichier, part du diamètre extérieur, mode de fusion, opacité repos, opacité parole)
-    ("jarvis-core-ring.png", 1.00, "normal", .88, 1.0),
-    ("jarvis-core-veil.png", .90, "normal", .62, .92),
-    ("jarvis-core-disc.png", .74, "screen", .82, 1.0),
-    ("jarvis-core-light.png", .34, "screen", .85, 1.0),
+    ("jarvis-core-ring.png", 1.00, "normal", .90, 1.0),
+    ("jarvis-core-disc.png", .78, "screen", .85, 1.0),
+    ("jarvis-core-veil.png", .66, "screen", .45, .80),
+    ("jarvis-core-light.png", .30, "screen", .88, 1.0),
 )
 
 
@@ -228,7 +228,7 @@ def preview() -> None:
     backdrop = Image.open(ASSETS / "command-room.jpg").convert("RGB").resize((1376, 768), Image.Resampling.LANCZOS)
     base = np.asarray(backdrop, dtype=np.float32) / 255.0
     centre = (688, 332)
-    outer = 380
+    outer = 300
 
     def compose(index: int) -> Image.Image:
         canvas = base.copy()

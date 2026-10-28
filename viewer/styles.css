@@ -37,14 +37,16 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, a:focus-visib
 .jarvis-core { position: absolute; left: var(--core-x, 688px); top: var(--core-y, 332px); width: var(--core-size, 380px); height: var(--core-size, 380px); margin: calc(var(--core-size, 380px) / -2) 0 0 calc(var(--core-size, 380px) / -2); transform: perspective(1400px) rotateX(9deg); transform-style: preserve-3d; --jarvis-voice: 0; }
 .jarvis-core-layer { position: absolute; inset: 0; display: grid; place-items: center; pointer-events: none; }
 .jarvis-core-layer img { display: block; width: 100%; height: 100%; object-fit: contain; user-select: none; -webkit-user-drag: none; }
-.core-ring { opacity: .88; transition: opacity .45s ease; }
+.core-ring { opacity: .9; transition: opacity .45s ease; }
 .core-ring img { animation: jarvis-core-spin 96s linear infinite; }
-.core-veil { opacity: .62; transition: opacity .45s ease; }
-.core-veil img { width: 90%; height: 90%; animation: jarvis-core-spin-reverse 64s linear infinite; }
+/* Disque cyan lumineux, posé juste devant le logement métallique. */
 .core-disc { opacity: calc(.62 + .34 * var(--jarvis-voice)); transition: opacity .12s ease-out; }
-.core-disc img { width: 74%; height: 74%; mix-blend-mode: screen; animation: jarvis-core-spin 30s linear infinite; }
-.core-light { opacity: calc(.72 + .28 * var(--jarvis-voice)); transition: opacity .12s ease-out; }
-.core-light img { width: 34%; height: 34%; mix-blend-mode: screen; animation: jarvis-core-pulse 3.8s ease-in-out infinite; }
+.core-disc img { width: 78%; height: 78%; mix-blend-mode: screen; animation: jarvis-core-spin 30s linear infinite; }
+/* Verre strié en superposition légère : il donne la profondeur, pas la masse. */
+.core-veil { opacity: .45; transition: opacity .45s ease; }
+.core-veil img { width: 66%; height: 66%; mix-blend-mode: screen; animation: jarvis-core-spin-reverse 64s linear infinite; }
+.core-light { opacity: calc(.74 + .26 * var(--jarvis-voice)); transition: opacity .12s ease-out; }
+.core-light img { width: 30%; height: 30%; mix-blend-mode: screen; animation: jarvis-core-pulse 3.8s ease-in-out infinite; }
 .jarvis-core-halo { position: absolute; inset: -14%; border-radius: 50%; background: radial-gradient(circle, rgba(78,214,255,.20), rgba(44,164,224,.07) 46%, transparent 70%); animation: jarvis-core-breathe 6.4s ease-in-out infinite; }
 .jarvis-core-beam { position: absolute; left: 50%; top: 62%; width: 46%; height: 62%; margin-left: -23%; transform: perspective(320px) rotateX(38deg); transform-origin: 50% 0; background: linear-gradient(180deg, rgba(120,235,255,.30), rgba(64,190,240,.10) 46%, transparent 86%); filter: blur(6px); opacity: .5; }
 .jarvis-core-base { position: absolute; left: 50%; top: 96%; width: 62%; height: 13%; margin-left: -31%; border-radius: 50%; background: radial-gradient(ellipse at center, rgba(96,226,255,.5), rgba(40,150,215,.14) 55%, transparent 78%); opacity: .55; }
@@ -55,7 +57,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, a:focus-visib
 
 /* Parole : les anneaux accélèrent et s'éclairent, l'orbe bat plus vite. */
 body.jarvis-speaking .core-ring { opacity: 1; }
-body.jarvis-speaking .core-veil { opacity: .92; }
+body.jarvis-speaking .core-veil { opacity: .8; }
 body.jarvis-speaking .core-ring img { animation-duration: 34s; }
 body.jarvis-speaking .core-veil img { animation-duration: 22s; }
 body.jarvis-speaking .core-disc img { animation-duration: 11s; }
@@ -426,5 +428,5 @@ button:hover .chevron { color: var(--cyan); transform: translateX(2px); }
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; }
   .jarvis-core-layer img, .jarvis-core-halo, .jarvis-core-beam { animation: none !important; }
   body.jarvis-speaking .core-ring { opacity: 1; }
-  body.jarvis-speaking .core-veil { opacity: .92; }
+  body.jarvis-speaking .core-veil { opacity: .8; }
 }
