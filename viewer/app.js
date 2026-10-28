@@ -347,10 +347,24 @@
       .sort((a, b) => a.point.z - b.point.z);
     projectedNodes = ordered;
 
+    const labelRequests = [];
+
     for (const { node, point } of ordered) {
       const isHovered = hoveredId === node.id;
       if (showingThemes) {
-        drawThemeNode(node, point, isHovered);
+        const empty = !node.count;
+        const radius = drawThemeNode(node, point, isHovered);
+        if (point.alpha > .05) {
+          const margin = Math.min(96, width / 2 - 6);
+          const anchorX = Math.max(margin, Math.min(width - margin, point.x));
+          const anchorY = Math.max(20, Math.min(height - 20, point.y + radius * 2.6 + 14));
+          labelRequests.push({
+            node, point, theme: true, empty,
+            emphasis: isHovered,
+            alpha: point.alpha * (empty ? .55 : .96),
+            x: anchorX, y: anchorY,
+          });
+        }
         continue;
       }
       const isSelected = selectedId === node.id;
@@ -379,10 +393,15 @@
       const shouldLabel = emphasis || labelIds.has(node.id) || inTheme
         || (level === "detail" && (ordered.length <= 14 || point.z > .15));
       if (shouldLabel && labelAlpha > .05) {
-        placeLabel(node.label, point, radius, labelAlpha, emphasis);
+        const anchor = labelAnchor(point, radius);
+        labelRequests.push({
+          node, point, theme: false, empty: false, emphasis,
+          alpha: labelAlpha, x: anchor.x, y: anchor.y,
+        });
       }
     }
     context.globalAlpha = 1;
+    renderLabels(labelRequests);
   }
 
   // --- Briques de dessin -----------------------------------------------------
@@ -390,6 +409,76 @@
   function nodeRadius(node, point, isSelected, isHovered) {
     const base = Math.max(3.4, Math.min(7.2, 4.4 + (node.connections || 0) * .16));
     return base * (isSelected ? 1.35 : isHovered ? 1.22 : 1) * (point.scale || 1) * (1 + Math.sin(performance.now() / 620 + (node.id % 7)) * .05);
+  }
+
+  // Les libellés sont du texte DOM superposé au canvas : ils sont rendus par le
+  // navigateur à la résolution exacte de l'écran, donc aussi nets que le reste de
+  // l'interface (le texte canvas restait systématiquement plus doux).
+  const labelLayer = document.getElementById("nodeLabels");
+  const labelPool = new Map();
+
+  function renderLabels(requests) {
+    if (!labelLayer) return;
+    const seen = new Set();
+    for (const request of requests) {
+      const key = (request.theme ? "t" : "n") + request.node.id;
+      seen.add(key);
+      let element = labelPool.get(key);
+      if (!element) {
+        element = document.createElement("div");
+        element.className = "node-label";
+        const name = document.createElement("span");
+        name.className = "node-label-name";
+        element.appendChild(name);
+        if (request.theme) {
+          const count = document.createElement("span");
+          count.className = "node-label-count";
+          element.appendChild(count);
+        }
+        labelLayer.appendChild(element);
+        labelPool.set(key, element);
+      }
+      const name = element.firstElementChild;
+      const text = request.node.label || "";
+      if (name.textContent !== text) name.textContent = text;
+      if (request.theme) {
+        const count = request.node.count
+          ? `${request.node.count} note${request.node.count > 1 ? "s" : ""}`
+          : "aucune note";
+        if (element.lastElementChild.textContent !== count) element.lastElementChild.textContent = count;
+      }
+      const className = `node-label ${request.theme ? "is-theme" : "is-note"}`
+        + `${request.emphasis ? " is-emphasis" : ""}${request.empty ? " is-empty" : ""}`;
+      if (element.className !== className) element.className = className;
+      element.style.setProperty("--pill-x", `${Math.round(request.point.x)}px`);
+      element.style.setProperty("--pill-y", `${Math.round(request.point.y)}px`);
+      element.style.opacity = request.alpha.toFixed(3);
+      element.style.transform = `translate(-50%, -50%) translate3d(${Math.round(request.x)}px, ${Math.round(request.y)}px, 0)`;
+      element.style.zIndex = String(10 + Math.round((request.point.z || 0) * 20));
+    }
+    for (const [key, element] of labelPool) {
+      if (seen.has(key)) continue;
+      element.remove();
+      labelPool.delete(key);
+    }
+  }
+
+  // Point d'ancrage du libellé d'une note : toujours à l'écart du point, jamais
+  // hors de la scène. Le texte reste centré sur ce point.
+  function labelAnchor(point, radius) {
+    const radialX = point.x - orbit.cx;
+    const radialY = point.y - orbit.cy;
+    const length = Math.hypot(radialX, radialY) || 1;
+    const outwardX = radialX / length;
+    const outwardY = radialY / length;
+    const offset = radius + 18;
+    const side = Math.abs(outwardX) > .72;
+    const margin = Math.min(96, width / 2 - 6);
+    let x = point.x + (side ? 0 : outwardX * offset);
+    let y = side ? point.y + (outwardY < 0 ? -offset : offset) : point.y + outwardY * offset;
+    x = Math.max(margin, Math.min(width - margin, x));
+    y = Math.max(18, Math.min(height - 18, y));
+    return { x, y };
   }
 
   function drawPill(x, y, radius, alpha, glow, ringRadius) {
@@ -424,63 +513,12 @@
     context.restore();
   }
 
-  function placeLabel(text, point, radius, alpha, emphasis) {
-    const radialX = point.x - orbit.cx;
-    const radialY = point.y - orbit.cy;
-    const length = Math.hypot(radialX, radialY) || 1;
-    const outwardX = radialX / length;
-    const outwardY = radialY / length;
-    context.save();
-    context.globalAlpha = alpha;
-    context.font = `${emphasis ? 13 : 12}px ui-monospace, SFMono-Regular, Menlo, monospace`;
-    context.textBaseline = "middle";
-    context.shadowColor = "rgba(0, 0, 0, .98)";
-    context.shadowBlur = 7;
-    context.fillStyle = emphasis ? "#f6ffff" : "#dcf3f8";
-    const label = text.length > 24 ? `${text.slice(0, 22)}…` : text;
-    const maxWidth = Math.min(196, Math.max(124, width * .3));
-    const offset = radius + 12;
-    const side = Math.abs(outwardX) > .72;
-    context.textAlign = side ? "center" : outwardX > .25 ? "left" : outwardX < -.25 ? "right" : "center";
-    let labelX = point.x + (side ? 0 : outwardX * offset);
-    let labelY = side ? point.y + (outwardY < 0 ? -offset : offset) : point.y + outwardY * offset;
-    const half = context.textAlign === "center" ? maxWidth / 2 : 0;
-    const leftBound = context.textAlign === "right" ? maxWidth : half;
-    const rightBound = context.textAlign === "left" ? maxWidth : half;
-    labelX = Math.max(8 + leftBound, Math.min(width - 8 - rightBound, labelX));
-    labelY = Math.max(14, Math.min(height - 12, labelY));
-    context.lineWidth = 3;
-    context.strokeStyle = "rgba(2, 10, 16, .82)";
-    context.strokeText(label, labelX, labelY, maxWidth);
-    context.fillText(label, labelX, labelY, maxWidth);
-    context.restore();
-  }
-
   function drawThemeNode(node, point, isHovered) {
     const empty = !node.count;
     const radius = 8.6 * (point.scale || 1) * (empty ? .78 : 1);
     const alpha = point.alpha * (empty ? .38 : isHovered ? 1 : .95);
     drawPill(point.x, point.y, radius, alpha, isHovered ? 1.5 : 1, point.alpha * radius * 1.9);
-    context.save();
-    context.globalAlpha = point.alpha * (empty ? .45 : isHovered ? 1 : .92);
-    context.textAlign = "center";
-    context.textBaseline = "middle";
-    context.shadowColor = "rgba(0,0,0,.95)";
-    context.shadowBlur = 7;
-    context.lineWidth = 3;
-    context.strokeStyle = "rgba(2,10,16,.85)";
-    context.font = `600 ${isHovered ? 15 : 14}px ui-monospace, SFMono-Regular, Menlo, monospace`;
-    context.fillStyle = isHovered ? "#ffffff" : "#e6fbff";
-    const labelY = point.y + radius * 2.6 + 13;
-    context.strokeText(node.label, point.x, labelY, 196);
-    context.fillText(node.label, point.x, labelY, 196);
-    context.font = `11px ui-monospace, SFMono-Regular, Menlo, monospace`;
-    context.globalAlpha = point.alpha * (empty ? .35 : .72);
-    context.fillStyle = "#bfe6ef";
-    const countText = node.count ? `${node.count} note${node.count > 1 ? "s" : ""}` : "aucune note";
-    context.strokeText(countText, point.x, labelY + 17, 150);
-    context.fillText(countText, point.x, labelY + 17, 150);
-    context.restore();
+    return radius;
   }
 
   // Anneau de guidage : ellipse pointillée qui tourne, graduations et halo tournant.

@@ -6,11 +6,11 @@
   <meta name="theme-color" content="#070b12">
   <meta name="description" content="JARVIS — votre assistant personnel, dans un cockpit holographique.">
   <title>JARVIS — Personal AI Command Center</title>
-  <link rel="preload" as="image" type="image/avif" href="/assets/jarvis-core-ring.avif?v=20261029f" fetchpriority="high">
-  <link rel="preload" as="image" type="image/avif" href="/assets/jarvis-core-disc.avif?v=20261029f" fetchpriority="high">
-  <link rel="stylesheet" href="/styles.css?v=20261029f">
-  <script defer src="/graph-data.js?v=20261029f"></script>
-  <script defer src="/app.js?v=20261029f"></script>
+  <link rel="preload" as="image" type="image/avif" href="/assets/jarvis-core-ring.avif?v=20261029i" fetchpriority="high">
+  <link rel="preload" as="image" type="image/avif" href="/assets/jarvis-core-disc.avif?v=20261029i" fetchpriority="high">
+  <link rel="stylesheet" href="/styles.css?v=20261029i">
+  <script defer src="/graph-data.js?v=20261029i"></script>
+  <script defer src="/app.js?v=20261029i"></script>
 </head>
 <body>
   <div class="screen-shade" aria-hidden="true"></div>
@@ -81,19 +81,20 @@
         <canvas id="galaxy" role="img" aria-label="Galaxie interactive de vos notes. Faites glisser pour tourner, cliquez sur une étoile pour ouvrir sa source."></canvas>
         <div class="stage-vignette" aria-hidden="true"></div>
         <div class="jarvis-core" id="jarvisCore" aria-hidden="true">
-          <span class="jarvis-core-layer core-ring"><img src="/assets/jarvis-core-ring.avif?v=20261029f" alt="" decoding="async" fetchpriority="high"></span>
-          <span class="jarvis-core-layer core-veil"><img src="/assets/jarvis-core-veil.avif?v=20261029f" alt="" decoding="async"></span>
+          <span class="jarvis-core-layer core-ring"><img src="/assets/jarvis-core-ring.avif?v=20261029i" alt="" decoding="async" fetchpriority="high"></span>
+          <span class="jarvis-core-layer core-veil"><img src="/assets/jarvis-core-veil.avif?v=20261029i" alt="" decoding="async"></span>
           <span class="jarvis-core-layer core-disc">
-            <img class="core-disc-base" src="/assets/jarvis-core-disc.avif?v=20261029f" alt="" decoding="async" fetchpriority="high">
-            <img class="core-voice-tint core-voice-violet" src="/assets/jarvis-core-hud-violet.avif?v=20261029f" alt="" decoding="async">
-            <img class="core-voice-tint core-voice-ambre" src="/assets/jarvis-core-hud-ambre.avif?v=20261029f" alt="" decoding="async">
+            <img class="core-disc-base" src="/assets/jarvis-core-disc.avif?v=20261029i" alt="" decoding="async" fetchpriority="high">
+            <img class="core-voice-tint core-voice-violet" src="/assets/jarvis-core-hud-violet.avif?v=20261029i" alt="" decoding="async">
+            <img class="core-voice-tint core-voice-ambre" src="/assets/jarvis-core-hud-ambre.avif?v=20261029i" alt="" decoding="async">
             <i class="core-disc-sweep"></i>
             <i class="core-disc-spark"></i>
           </span>
-          <span class="jarvis-core-layer core-light"><img src="/assets/jarvis-core-light.avif?v=20261029f" alt="" decoding="async"></span>
+          <span class="jarvis-core-layer core-light"><img src="/assets/jarvis-core-light.avif?v=20261029i" alt="" decoding="async"></span>
           <span class="jarvis-core-beam" aria-hidden="true"></span>
           <span class="jarvis-core-base" aria-hidden="true"></span>
         </div>
+        <div class="node-labels" id="nodeLabels" aria-hidden="true"></div>
         <div class="stage-hud stage-hud-left"><span class="hud-label">SECTEUR ACTIF</span><b id="sectorLabel">TOUS LES THÈMES</b></div>
         <div class="stage-hud stage-hud-right"><span class="orbit-indicator"></span><span id="stageModeLabel">RÉSEAU LOCAL</span></div>
         <div class="empty-state" id="emptyState" hidden><span class="empty-orb">✳</span><h2>Votre mémoire attend ses premières notes</h2><p>Ajoutez des fichiers Markdown <code>.md</code> dans votre dossier personnel, puis relancez JARVIS.</p></div>
