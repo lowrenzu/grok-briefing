@@ -38,23 +38,22 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, a:focus-visib
 .jarvis-core { opacity: 0; transition: opacity .45s ease-out; }
 body.core-ready .jarvis-core { opacity: 1; }
 .jarvis-core { position: absolute; z-index: 3; left: 50%; top: 47%; width: var(--core-size); height: var(--core-size); margin: calc(var(--core-size) / -2) 0 0 calc(var(--core-size) / -2); transform: perspective(1400px) rotateX(9deg); transform-style: preserve-3d; pointer-events: none; --jarvis-voice: 0; }
-.jarvis-core-layer { position: absolute; inset: 0; display: grid; place-items: center; pointer-events: none; }
-.jarvis-core-layer picture, .core-disc picture { display: contents; }
-.jarvis-core-layer img { display: block; width: 100%; height: 100%; object-fit: contain; user-select: none; -webkit-user-drag: none; }
-.core-ring { opacity: .9; transition: opacity .45s ease; }
+.jarvis-core-layer { position: absolute; display: grid; place-items: center; pointer-events: none; }
+.jarvis-core-layer img { position: relative; display: block; width: 100%; height: 100%; max-width: 100%; max-height: 100%; object-fit: contain; user-select: none; -webkit-user-drag: none; }
+.core-ring { inset: 0; opacity: .9; transition: opacity .45s ease; }
 .core-ring img { animation: jarvis-core-spin 96s linear infinite; }
 /* Anneau HUD cyan : la plaque tourne, et deux balayages lumineux parcourent sa couronne.
    Les deux balayages sont masqués en anneau (rayon du trou mesuré : 0,378 du demi-côté,
    bord extérieur 0,97) : la lumière ne déborde donc jamais sur le logement métallique. */
-.core-disc { display: grid; grid-template-columns: 1fr; grid-template-rows: 1fr; opacity: calc(.62 + .34 * var(--jarvis-voice)); transition: opacity .12s ease-out; }
+.core-disc { inset: 14%; display: grid; grid-template-columns: 1fr; grid-template-rows: 1fr; opacity: calc(.62 + .34 * var(--jarvis-voice)); transition: opacity .12s ease-out; }
 .core-disc > * { grid-area: 1 / 1; }
-.core-disc img { width: 72%; height: 72%; mix-blend-mode: screen; }
+.core-disc img { width: 100%; height: 100%; mix-blend-mode: screen; }
 .core-disc-base { animation: jarvis-core-spin 30s linear infinite; }
 /* Nappes de voix : l'anneau se teinte en violet puis en ambre pendant la synthèse. */
 .core-voice-tint { opacity: 0; will-change: opacity; }
 .core-voice-violet { animation: jarvis-core-spin-reverse 26s linear infinite; }
 .core-voice-ambre { animation: jarvis-core-spin 34s linear infinite; }
-.core-disc-sweep, .core-disc-spark { display: block; width: 72%; height: 72%; border-radius: 50%; pointer-events: none; mix-blend-mode: screen; will-change: transform; }
+.core-disc-sweep, .core-disc-spark { display: block; width: 100%; height: 100%; border-radius: 50%; pointer-events: none; mix-blend-mode: screen; will-change: transform; }
 /* Balayage principal : deux secteurs opposés, la couronne s'allume en tournant. */
 .core-disc-sweep {
   background: conic-gradient(from 0deg,
@@ -75,10 +74,10 @@ body.core-ready .jarvis-core { opacity: 1; }
   animation: jarvis-core-spin-reverse 4.6s ease-in-out infinite;
 }
 /* Verre strié en superposition légère : il donne la profondeur, pas la masse. */
-.core-veil { opacity: .9; transition: opacity .45s ease; }
-.core-veil img { width: 90%; height: 90%; animation: jarvis-core-spin-reverse 64s linear infinite; }
-.core-light { opacity: calc(.74 + .26 * var(--jarvis-voice)); transition: opacity .12s ease-out; }
-.core-light img { width: 40%; height: 40%; mix-blend-mode: screen; animation: jarvis-core-pulse 3.8s ease-in-out infinite; }
+.core-veil { inset: 5%; opacity: .9; transition: opacity .45s ease; }
+.core-veil img { width: 100%; height: 100%; animation: jarvis-core-spin-reverse 64s linear infinite; }
+.core-light { inset: 30%; opacity: calc(.74 + .26 * var(--jarvis-voice)); transition: opacity .12s ease-out; }
+.core-light img { width: 100%; height: 100%; mix-blend-mode: screen; animation: jarvis-core-pulse 3.8s ease-in-out infinite; }
 .jarvis-core-beam { position: absolute; left: 50%; top: 62%; width: 46%; height: 62%; margin-left: -23%; transform: perspective(320px) rotateX(38deg); transform-origin: 50% 0; background: linear-gradient(180deg, rgba(120,235,255,.30), rgba(64,190,240,.10) 46%, transparent 86%); filter: blur(6px); opacity: .5; }
 .jarvis-core-base { position: absolute; left: 50%; top: 96%; width: 62%; height: 13%; margin-left: -31%; border-radius: 50%; background: radial-gradient(ellipse at center, rgba(96,226,255,.5), rgba(40,150,215,.14) 55%, transparent 78%); opacity: .55; }
 @keyframes jarvis-core-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }

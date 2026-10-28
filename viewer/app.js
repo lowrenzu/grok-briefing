@@ -1560,9 +1560,17 @@
   function revealCore() {
     const images = Array.from(document.querySelectorAll(".jarvis-core img"));
     const done = () => document.body.classList.add("core-ready");
-    Promise.all(images.map((image) => (image.decode ? image.decode().catch(() => {}) : Promise.resolve())))
-      .then(done)
-      .catch(done);
+    const ready = images.map((image) => {
+      if (!image.decode) return Promise.resolve();
+      return image.decode().catch(() => {
+        // Repli : si le navigateur ne décode pas l'AVIF, on repasse au PNG.
+        const source = image.src || "";
+        if (!source.endsWith(".avif")) return undefined;
+        image.src = source.replace(/\.avif(\?.*)?$/, ".png");
+        return image.decode ? image.decode().catch(() => undefined) : undefined;
+      });
+    });
+    Promise.all(ready).then(done).catch(done);
     window.setTimeout(done, 2500); // filet de sécurité : jamais de scène vide
   }
 
