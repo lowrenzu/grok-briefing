@@ -19,14 +19,13 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlencode, urlsplit
 
+import ai_providers
 from build import DEFAULT_NOTES_DIR, ROOT, build_links, normalize, public_graph, read_notes, resolve_notes_dir, write_graph_data
 
 CONFIG_PATH = ROOT / "config.json"
 MAX_BODY_BYTES = 24_000
 MAX_HISTORY_MESSAGES = 10
 SESSION_TTL_SECONDS = 8 * 60 * 60
-ANTHROPIC_URL = "https://api.anthropic.com/v1/messages"
-DEFAULT_MODEL = "claude-opus-4-8"
 
 STOP_WORDS = {
     "a", "au", "aux", "avec", "ce", "ces", "cette", "dans", "de", "des", "du", "elle", "en", "et",
@@ -58,14 +57,10 @@ def load_config() -> dict[str, Any]:
 
 
 CONFIG = load_config()
+# Les réglages du cerveau IA sont vivants : le panneau Réglages les modifie sans
+# redémarrer le serveur. La clé reste dans config.json, côté serveur uniquement.
+AI = ai_providers.AiSettings(CONFIG_PATH)
 NOTES_DIR = resolve_notes_dir(CONFIG.get("notes_dir"))
-MODEL = os.environ.get("ANTHROPIC_MODEL") or str(CONFIG.get("model") or DEFAULT_MODEL).strip()
-API_KEY = os.environ.get("ANTHROPIC_API_KEY") or str(CONFIG.get("api_key") or "").strip()
-if API_KEY.casefold() in {"put-your-key-here", "votre-cle-api-ici", "", "changeme"}:
-    API_KEY = ""
-
-if not re.fullmatch(r"[A-Za-z0-9_.-]{1,120}", MODEL):
-    MODEL = DEFAULT_MODEL
 
 STATE_LOCK = threading.RLock()
 STATE: dict[str, Any] = {"notes": [], "graph": {"nodes": [], "links": []}}
@@ -187,6 +182,41 @@ def get_weather() -> dict[str, Any]:
             raise RuntimeError("Service météo momentanément injoignable.") from None
 
 
+def apply_notes_dir(settings: ai_providers.AiSettings) -> bool:
+    """Recale le dossier de notes si les Réglages en ont changé un. True si rechargé."""
+    global NOTES_DIR
+    wanted = resolve_notes_dir(settings.notes_dir or os.environ.get("JARVIS_NOTES_DIR"))
+    if wanted == NOTES_DIR:
+        return False
+    NOTES_DIR = wanted
+    rebuild_index()
+    return True
+
+
+def notes_are_demo() -> bool:
+    return NOTES_DIR == DEFAULT_NOTES_DIR.resolve()
+
+
+def client_is_local(handler: BaseHTTPRequestHandler) -> bool:
+    address = str(handler.client_address[0])
+    return address in {"127.0.0.1", "::1", "localhost"} or address.startswith("127.")
+
+
+def settings_writable(handler: BaseHTTPRequestHandler) -> tuple[bool, str]:
+    """Le panneau Réglages écrit des secrets : il reste réservé au PC par défaut.
+
+    Depuis un autre appareil du réseau (tablette), la modification est refusée sauf
+    si le serveur a été lancé avec JARVIS_SETTINGS_LAN=1. Une requête doit en plus
+    porter l'en-tête X-Jarvis-Settings, ce qui bloque les formulaires forgés par un
+    site tiers (il faudrait un accord CORS que ce serveur n'accorde pas).
+    """
+    if handler.headers.get("X-Jarvis-Settings") != "1":
+        return False, "Requête refusée : en-tête JARVIS manquant."
+    if client_is_local(handler) or os.environ.get("JARVIS_SETTINGS_LAN") == "1":
+        return True, ""
+    return False, "Par sécurité, les réglages ne s’enregistrent que depuis le PC où tourne JARVIS."
+
+
 def rebuild_index() -> dict[str, Any]:
     notes = read_notes(NOTES_DIR)
     links = build_links(notes)
@@ -279,40 +309,9 @@ def make_system_prompt(relevant: list[dict[str, Any]]) -> str:
     )
 
 
-def call_anthropic(question: str, relevant: list[dict[str, Any]], history: list[dict[str, str]]) -> str:
-    if not API_KEY:
-        raise RuntimeError("IA non configurée")
-    messages = list(history[-MAX_HISTORY_MESSAGES:])
-    messages.append({"role": "user", "content": question})
-    payload = {
-        "model": MODEL,
-        "max_tokens": 420,
-        "system": make_system_prompt(relevant),
-        "messages": messages,
-    }
-    request = urllib.request.Request(
-        ANTHROPIC_URL,
-        data=json.dumps(payload, ensure_ascii=False).encode("utf-8"),
-        headers={
-            "content-type": "application/json",
-            "x-api-key": API_KEY,
-            "anthropic-version": "2023-06-01",
-        },
-        method="POST",
-    )
-    try:
-        with urllib.request.urlopen(request, timeout=45) as response:
-            data = json.loads(response.read().decode("utf-8"))
-    except urllib.error.HTTPError as exc:
-        # Ne jamais renvoyer le corps de l'erreur fournisseur (ni la clé) au navigateur.
-        raise RuntimeError(f"Réponse Anthropic HTTP {exc.code}") from None
-    except (urllib.error.URLError, TimeoutError, json.JSONDecodeError) as exc:
-        raise RuntimeError(f"Service IA injoignable ({type(exc).__name__})") from None
-    texts = [part.get("text", "") for part in data.get("content", []) if part.get("type") == "text"]
-    answer = "\n".join(text for text in texts if text).strip()
-    if not answer:
-        raise RuntimeError("Le modèle n’a pas renvoyé de texte")
-    return answer[:6000]
+def call_ai(question: str, relevant: list[dict[str, Any]], history: list[dict[str, str]]) -> str:
+    """Envoie la question au fournisseur choisi dans les Réglages."""
+    return ai_providers.ask(question, make_system_prompt(relevant), history, AI)
 
 
 def get_session(session_id: str | None) -> tuple[str, dict[str, Any], bool]:
@@ -373,13 +372,13 @@ def chat_handler(question: str, session: dict[str, Any]) -> dict[str, Any]:
 
     nodes = [note["id"] for note in relevant]
     warning = None
-    if API_KEY:
+    if AI.configured:
         try:
-            answer = call_anthropic(question, relevant, history)
+            answer = call_ai(question, relevant, history)
             local_mode = False
         except RuntimeError as exc:
             answer = local_answer(question, relevant)
-            warning = f"Mode de secours local : {exc}. Vérifiez la clé et le modèle dans config.json."
+            warning = f"Mode de secours local : {exc}. Vérifiez la clé et le modèle dans Réglages."
             local_mode = True
     else:
         answer = local_answer(question, relevant)
@@ -506,13 +505,25 @@ class JarvisHandler(BaseHTTPRequestHandler):
             is_demo = NOTES_DIR == DEFAULT_NOTES_DIR.resolve()
             return self.send_json({
                 "noteCount": len(notes),
-                "aiConfigured": bool(API_KEY),
-                "model": MODEL if API_KEY else None,
+                "aiConfigured": AI.configured,
+                "provider": AI.provider if AI.configured else None,
+                "providerLabel": AI.spec["label"] if AI.configured else None,
+                "model": AI.model if AI.configured else None,
                 "isDemo": is_demo,
             })
         if path == "/api/graph":
             _notes, graph = current_state()
             return self.send_json(graph)
+        if path == "/api/settings":
+            notes, _graph = current_state()
+            payload = AI.public()
+            payload.update({
+                "noteCount": len(notes),
+                "isDemo": notes_are_demo(),
+                "notesDirResolved": str(NOTES_DIR),
+                "canEdit": client_is_local(self) or os.environ.get("JARVIS_SETTINGS_LAN") == "1",
+            })
+            return self.send_json(payload)
 
         assets = {
             "/": ROOT / "viewer" / "index.html",
@@ -569,6 +580,73 @@ class JarvisHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
+    def handle_settings(self, path: str, body: dict[str, Any]) -> None:
+        """Enregistre les réglages, ou teste la connexion au fournisseur choisi."""
+        allowed, reason = settings_writable(self)
+        if not allowed:
+            self.send_json({"error": reason}, HTTPStatus.FORBIDDEN)
+            return
+        if path == "/api/settings/test":
+            return self.test_settings(body)
+        try:
+            AI.update(body)
+            reloaded = apply_notes_dir(AI)
+            if not reloaded and "notesDir" in body:
+                # Dossier confirmé sans changement : on réindexe quand même, ce qui
+                # garantit que la liste affichée correspond au dossier enregistré.
+                rebuild_index()
+                reloaded = True
+        except ai_providers.SettingsError as exc:
+            self.send_json({"error": str(exc)}, HTTPStatus.BAD_REQUEST)
+            return
+        except OSError:
+            self.send_json({"error": "Impossible d’écrire config.json (droits du dossier ?)."}, HTTPStatus.INTERNAL_SERVER_ERROR)
+            return
+        notes, _graph = current_state()
+        payload = AI.public()
+        payload.update({
+            "ok": True,
+            "notesChanged": reloaded,
+            "noteCount": len(notes),
+            "isDemo": notes_are_demo(),
+        })
+        print(f"[JARVIS] Réglages enregistrés : {AI.spec['label']} · {AI.model}"
+              f"{' · clé enregistrée' if AI.key else ' · sans clé'}")
+        self.send_json(payload)
+
+    def test_settings(self, body: dict[str, Any]) -> None:
+        """Test réel mais sans rien enregistrer : on essaie d'abord les valeurs saisies."""
+        pending = ai_providers.AiSettings(AI.path)
+        pending._values = dict(AI._values)
+        if "provider" in body or "model" in body or "baseUrl" in body or "apiKey" in body:
+            candidate = dict(AI._values)
+            if body.get("provider"):
+                candidate["provider"] = str(body["provider"]).casefold()
+            if body.get("model"):
+                candidate["model"] = str(body["model"])
+            if body.get("baseUrl"):
+                candidate["base_url"] = str(body["baseUrl"])
+            if body.get("apiKey"):
+                candidate["api_key"] = str(body["apiKey"])
+            pending._values = candidate
+        try:
+            started = time.time()
+            reply = ai_providers.test_connection(pending)
+        except ai_providers.SettingsError as exc:
+            self.send_json({"ok": False, "error": str(exc)}, HTTPStatus.BAD_REQUEST)
+            return
+        except RuntimeError as exc:
+            self.send_json({"ok": False, "error": str(exc)}, HTTPStatus.BAD_GATEWAY)
+            return
+        elapsed = int((time.time() - started) * 1000)
+        self.send_json({
+            "ok": True,
+            "message": f"{pending.spec['label']} répond en {elapsed} ms",
+            "reply": reply[:80],
+            "provider": pending.provider,
+            "model": pending.model,
+        })
+
     def _body(self) -> dict[str, Any]:
         length_text = self.headers.get("Content-Length", "0")
         try:
@@ -588,7 +666,7 @@ class JarvisHandler(BaseHTTPRequestHandler):
 
     def do_POST(self) -> None:  # noqa: N802
         path = urlsplit(self.path).path
-        if path not in {"/api/chat", "/api/remember"}:
+        if path not in {"/api/chat", "/api/remember", "/api/settings", "/api/settings/test"}:
             self.send_json({"error": "Route introuvable."}, HTTPStatus.NOT_FOUND)
             return
         try:
@@ -596,6 +674,9 @@ class JarvisHandler(BaseHTTPRequestHandler):
         except ValueError as exc:
             self.send_json({"error": str(exc)}, HTTPStatus.BAD_REQUEST)
             return
+
+        if path in {"/api/settings", "/api/settings/test"}:
+            return self.handle_settings(path, body)
 
         session_id, session, new_cookie = get_cookie_session(self)
         cookie = session_cookie(session_id) if new_cookie else None
@@ -644,7 +725,7 @@ def main() -> None:
     server.daemon_threads = True
     print("\n  JARVIS est prêt.")
     print(f"  Notes : {len(graph['nodes'])}  ·  Liens : {len(graph['links'])}")
-    print(f"  IA : {'Anthropic configuré' if API_KEY else 'mode local (sans clé API)'}")
+    print(f"  IA : {AI.spec['label'] + ' · ' + AI.model if AI.configured else 'mode local (sans clé API)'}")
     print(f"  Ouvrez : http://localhost:{port}  (Chrome ou Edge pour la dictée)\n")
     try:
         server.serve_forever()

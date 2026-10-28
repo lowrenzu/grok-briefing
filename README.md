@@ -22,11 +22,14 @@ Exemple :
 
 ```json
 {
+  "provider": "anthropic",
   "notes_dir": "/Users/vous/Documents/mon-vault",
   "api_key": "PUT-YOUR-KEY-HERE",
   "model": "claude-opus-4-8"
 }
 ```
+
+`provider` vaut `anthropic`, `openai`, `mistral`, `groq`, `ollama` ou `custom`; `base_url` permet d’indiquer l’adresse d’un service libre (Ollama, LM Studio…). Tout cela se règle aussi depuis le panneau **Réglages**, sans éditer le fichier.
 
 Le cœur est composé de quatre calques PNG transparents dans `viewer/assets/`, assemblés du plus grand au plus petit comme la planche éclatée de référence : couronne d’acier (`jarvis-core-ring.png`), mécanique interne (`jarvis-core-veil.png`), anneau HUD cyan (`jarvis-core-disc.png`) et œil lumineux (`jarvis-core-light.png`). L’interface reproduit la géométrie « cover » du décor pour que l’ensemble reste posé au-dessus du projecteur du cockpit. Les libellés des thèmes et des notes ne sont pas dessinés dans le canvas : ce sont des éléments DOM (`#nodeLabels`) positionnés à chaque image, donc rendus par le navigateur à la résolution exacte de l’écran — le texte reste aussi net que le reste de l’interface. Les calques se régénèrent avec `python3 tools/build-jarvis-core.py` (Pillow et numpy requis, uniquement pour cette commande) ; les images sources sont dans `tools/sources/`. Le générateur écrit deux fichiers par calque : la version **AVIF** servie au navigateur (≈ 60 Ko, neuf fois plus légère que le PNG) et un repli **PNG** pour les navigateurs anciens. Les deux nappes de voix `jarvis-core-hud-violet` et `jarvis-core-hud-ambre` teintent l’anneau pendant la synthèse ; elles se déduisent de `tools/sources/hud-violet.jpg` et `hud-ambre.jpg`. Le cœur n’apparaît qu’une fois tous ses calques décodés (`body.core-ready`, posé par `viewer/app.js`), pour éviter de voir les anneaux se poser un par un.
 
@@ -34,9 +37,17 @@ Le cœur est composé de quatre calques PNG transparents dans `viewer/assets/`, 
 
 ## Activer les réponses IA (facultatif)
 
-Sans clé, la recherche locale par mots-clés fonctionne déjà et affiche les extraits les plus pertinents. Pour obtenir une synthèse rédigée, collez votre clé Anthropic dans `api_key` de `config.json`, ou définissez la variable d'environnement `ANTHROPIC_API_KEY`. Vous pouvez modifier `model` dans le même fichier. **Ne collez jamais une clé dans le chat ou dans le code du navigateur.**
+Sans clé, la recherche locale par mots-clés fonctionne déjà et affiche les extraits les plus pertinents. Pour obtenir une synthèse rédigée, ouvrez le panneau **Réglages** (l’engrenage en haut à droite de la page), choisissez un fournisseur, collez votre clé et cliquez sur **Tester** puis **Enregistrer**. Aucun redémarrage n’est nécessaire : le serveur applique les réglages immédiatement.
 
-Quand une clé est configurée, le serveur envoie à Anthropic la question et le texte des six notes les mieux classées pour produire la réponse. La clé reste sur le serveur et n'est jamais incluse dans les pages servies. La voix utilise les fonctions intégrées au navigateur; aucune clé ni service vocal payant n'est requis.
+Fournisseurs proposés : **Anthropic** (Claude), **OpenAI**, **Mistral**, **Groq**, **Ollama** (modèle installé sur votre PC, gratuit et hors ligne) et **tout service compatible OpenAI** (LM Studio, OpenRouter, vLLM…) avec son adresse.
+
+Le panneau peut aussi changer le **dossier de notes** ; l’index est reconstruit à l’enregistrement. Les réglages sont écrits dans `config.json` avec des droits `600` (propriétaire uniquement).
+
+Toujours possible en ligne de commande : `api_key` et `model` dans `config.json`, ou la variable d’environnement `ANTHROPIC_API_KEY` / `JARVIS_API_KEY` (prioritaire sur le fichier). **Ne collez jamais une clé dans le chat ou dans le code du navigateur.**
+
+Sécurité : le serveur ne renvoie au navigateur qu’une clé **masquée** (`••••••••4f2a`), jamais la clé complète. Les écritures de réglages sont réservées au PC où tourne JARVIS, exigent l’en-tête `X-Jarvis-Settings: 1` (protection contre les formulaires forgés par un site tiers) et restent refusées depuis la tablette, sauf si vous lancez le serveur avec `JARVIS_SETTINGS_LAN=1`.
+
+Quand une clé est configurée, le serveur envoie au fournisseur choisi la question et le texte des six notes les mieux classées. La clé reste sur le serveur et n'est jamais incluse dans les pages servies. La voix utilise les fonctions intégrées au navigateur; aucune clé ni service vocal payant n'est requis.
 
 ## Ce que vous pouvez essayer
 
