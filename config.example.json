@@ -1,5 +1,7 @@
 {
+  "provider": "anthropic",
   "notes_dir": "examples/demo-notes",
   "api_key": "PUT-YOUR-KEY-HERE",
-  "model": "claude-opus-4-8"
+  "model": "claude-opus-4-8",
+  "base_url": ""
 }

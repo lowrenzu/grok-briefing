@@ -16,6 +16,8 @@
   const sourceEmpty = $("#sourceEmpty");
   const sourceContent = $("#sourceContent");
   const helpDialog = $("#helpDialog");
+  const settingsDialog = $("#settingsDialog");
+  const settingsForm = $("#settingsForm");
   const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   const core = $("#jarvisCore");
 
@@ -1269,9 +1271,13 @@
       const status = await response.json();
       const aiReady = Boolean(status.aiConfigured);
       $("#connectionLabel").textContent = aiReady ? "IA CONNECTÉE" : "INDEX LOCAL PRÊT";
-      $("#brainLabel").textContent = aiReady ? "ANTHROPIC ACTIF" : "MODE LOCAL";
+      $("#brainLabel").textContent = aiReady
+        ? String(status.providerLabel || "IA").toLocaleUpperCase("fr-FR")
+        : "MODE LOCAL";
       $("#modelLabel").textContent = aiReady ? String(status.model || "MODÈLE IA").toLocaleUpperCase("fr-FR") : "RECHERCHE SUR VOS NOTES";
-      $("#privacyHint").textContent = aiReady ? "Extraits pertinents envoyés à Anthropic" : "Vos notes restent sur cet appareil";
+      $("#privacyHint").textContent = aiReady
+        ? `Extraits pertinents envoyés à ${status.providerLabel || "l’IA"}`
+        : "Vos notes restent sur cet appareil";
       $("#buildLabel").textContent = aiReady ? "IA PRIVÉE PAR LE SERVEUR" : "LOCAL FIRST";
       if (status.isDemo) {
         graphStatus.textContent = "Exemples fictifs — remplacez-les par vos notes";
@@ -1575,6 +1581,226 @@
     if (clock) clock.textContent = new Intl.DateTimeFormat("fr-FR", { hour: "2-digit", minute: "2-digit" }).format(now);
   }
 
+  // --- Panneau Réglages -----------------------------------------------------
+  // Le navigateur ne reçoit jamais la clé : seulement sa version masquée. Toutes les
+  // écritures passent par le serveur, qui la range dans config.json (droits 600).
+  let settingsState = null;
+  let clearKeyRequested = false;
+
+  function setSettingsStatus(message, kind = "") {
+    const status = $("#settingsStatus");
+    if (!status) return;
+    status.textContent = message || "";
+    status.className = `settings-status${kind ? " " + kind : ""}`;
+  }
+
+  function paintSettings(data) {
+    settingsState = data;
+    const provider = $("#settingsProvider");
+    if (provider && !provider.options.length) {
+      provider.replaceChildren();
+      for (const item of data.providers || []) {
+        const option = document.createElement("option");
+        option.value = item.id;
+        option.textContent = item.label;
+        provider.appendChild(option);
+      }
+    }
+    if (provider) provider.value = data.provider;
+    $("#settingsModel").value = data.model || "";
+    $("#settingsUrl").value = data.baseUrl || "";
+    $("#settingsUrlField").hidden = !data.urlEditable;
+    $("#settingsNotes").value = data.notesDir || "";
+    $("#settingsNotes").placeholder = data.isDemo
+      ? "notes de démonstration (laissez vide)"
+      : data.notesDirResolved || "";
+    const hint = $("#settingsProviderHint");
+    if (hint) hint.textContent = data.hint || "";
+    const keyInput = $("#settingsKey");
+    keyInput.value = "";
+    clearKeyRequested = false;
+    keyInput.type = "password";
+    $("#settingsReveal").setAttribute("aria-pressed", "false");
+    if (data.keyFromEnv) {
+      keyInput.placeholder = `fournie par ${data.keyFromEnv}`;
+      keyInput.disabled = true;
+      $("#settingsKeyHint").textContent = "Une clé est fournie par une variable d’environnement : elle prime sur ce champ.";
+    } else {
+      keyInput.disabled = false;
+      keyInput.placeholder = data.keyConfigured
+        ? `${data.keyMasked} déjà enregistrée — laissez vide pour la garder`
+        : "collez votre clé ici";
+      $("#settingsKeyHint").innerHTML = "Enregistrée uniquement dans <code>config.json</code>, sur ce serveur. Jamais dans la page, jamais dans le navigateur.";
+    }
+    const state = $("#settingsState");
+    const title = $("#settingsStateTitle");
+    const text = $("#settingsStateText");
+    state.classList.remove("is-on", "is-warn");
+    if (data.configured) {
+      state.classList.add("is-on");
+      title.textContent = `${(data.providerLabel || "IA").toLocaleUpperCase("fr-FR")} CONNECTÉE`;
+      text.textContent = `${data.model} · ${data.noteCount || 0} notes indexées. Seuls les extraits utiles partent vers le service.`;
+    } else if (data.keyConfigured) {
+      state.classList.add("is-warn");
+      title.textContent = "CLÉ ENREGISTRÉE, IA INCOMPLÈTE";
+      text.textContent = "Vérifiez le modèle, puis utilisez « Tester ».";
+    } else {
+      title.textContent = "MODE LOCAL";
+      text.textContent = "Recherche par mots-clés dans vos notes, sans clé ni facture. Tout reste sur cet appareil.";
+    }
+    const canEdit = data.canEdit !== false;
+    for (const id of ["#settingsSave", "#settingsTest", "#settingsClearKey"]) {
+      const button = $(id);
+      if (button) button.disabled = !canEdit;
+    }
+    if (!canEdit) {
+      setSettingsStatus("Enregistrement réservé au PC où tourne JARVIS. Ouvrez cette page sur ce PC pour modifier les réglages.", "ko");
+    } else {
+      setSettingsStatus("");
+    }
+  }
+
+  function selectedProvider(id) {
+    return (settingsState && settingsState.providers || []).find((item) => item.id === id) || {};
+  }
+
+  function syncProviderFields() {
+    const choice = $("#settingsProvider").value;
+    const spec = selectedProvider(choice);
+    // Le modèle d'un service ne fonctionne pas chez un autre : on vide le champ hérité.
+    if (settingsState && choice !== settingsState.provider && $("#settingsModel").value === settingsState.model) {
+      $("#settingsModel").value = "";
+      $("#settingsModel").placeholder = choice === "ollama"
+        ? "ex. llama3.2 (ollama list)"
+        : "nom exact du modèle";
+    }
+    // L'adresse n'est modifiable que pour les services libres (Ollama, compatible
+    // OpenAI) ou pour le fournisseur enregistré s'il autorise une adresse maison.
+    const knownAddress = ["ollama", "custom"].includes(choice);
+    const savedAddress = settingsState && settingsState.urlEditable && choice === settingsState.provider;
+    $("#settingsUrlField").hidden = !(knownAddress || savedAddress);
+    if (knownAddress && !$("#settingsUrl").value.trim()) {
+      $("#settingsUrl").placeholder = choice === "ollama"
+        ? "http://127.0.0.1:11434/v1/chat/completions"
+        : "http://127.0.0.1:1234/v1/chat/completions";
+    }
+    const needsKey = spec.needsKey !== false;
+    const locked = Boolean(settingsState && settingsState.keyFromEnv);
+    $("#settingsKey").disabled = locked || !needsKey;
+    if (!needsKey) {
+      $("#settingsKey").placeholder = "aucune clé nécessaire";
+      $("#settingsKeyHint").textContent = "Ce service fonctionne sans clé : rien à payer.";
+    } else if (!locked && !$("#settingsKey").value) {
+      $("#settingsKey").placeholder = settingsState && settingsState.keyConfigured
+        ? `${settingsState.keyMasked} déjà enregistrée — laissez vide pour la garder`
+        : "collez votre clé ici";
+    }
+  }
+
+  function settingsPayload() {
+    const payload = {
+      provider: $("#settingsProvider").value,
+      model: $("#settingsModel").value.trim(),
+      notesDir: $("#settingsNotes").value.trim(),
+    };
+    if (!$("#settingsUrlField").hidden) payload.baseUrl = $("#settingsUrl").value.trim();
+    const key = $("#settingsKey").value.trim();
+    if (key) payload.apiKey = key;
+    else if (clearKeyRequested) payload.apiKey = null;
+    return payload;
+  }
+
+  async function requestSettings(options) {
+    const response = await fetch("/api/settings", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Jarvis-Settings": "1" },
+      ...options,
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.error || `Le serveur a répondu ${response.status}.`);
+    return data;
+  }
+
+  async function saveSettings(event) {
+    if (event) event.preventDefault();
+    const button = $("#settingsSave");
+    setSettingsStatus("Enregistrement…", "busy");
+    if (button) button.disabled = true;
+    try {
+      const data = await requestSettings({ body: JSON.stringify(settingsPayload()) });
+      paintSettings({ ...settingsState, ...data });
+      const bits = [`Réglages enregistrés : ${data.providerLabel || data.provider}`];
+      if (data.keyConfigured) bits.push("clé en place");
+      bits.push(data.noteCount ? `${data.noteCount} notes` : "aucune note");
+      setSettingsStatus(bits.join(" · ") + ".", "ok");
+      await loadStatus();
+      if (data.notesChanged) {
+        const graphResponse = await fetch("/api/graph", { headers: { Accept: "application/json" } });
+        if (graphResponse.ok) updateGraph(await graphResponse.json());
+      }
+    } catch (error) {
+      setSettingsStatus(error.message, "ko");
+    } finally {
+      if (button) button.disabled = false;
+    }
+  }
+
+  async function testSettings() {
+    const button = $("#settingsTest");
+    setSettingsStatus("Test en cours, un aller-retour vers le service…", "busy");
+    if (button) button.disabled = true;
+    try {
+      const response = await fetch("/api/settings/test", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Jarvis-Settings": "1" },
+        body: JSON.stringify(settingsPayload()),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || !data.ok) throw new Error(data.error || `Test impossible (${response.status}).`);
+      setSettingsStatus(`${data.message} · réponse : « ${data.reply} »`, "ok");
+    } catch (error) {
+      setSettingsStatus(`Échec du test — ${error.message}`, "ko");
+    } finally {
+      if (button) button.disabled = false;
+    }
+  }
+
+  function clearKey() {
+    clearKeyRequested = true;
+    $("#settingsKey").value = "";
+    $("#settingsKey").placeholder = "clé effacée : enregistrez pour confirmer";
+    setSettingsStatus("Clé effacée du champ. Cliquez sur ENREGISTRER pour la supprimer définitivement.", "busy");
+  }
+
+  function toggleReveal() {
+    const input = $("#settingsKey");
+    const button = $("#settingsReveal");
+    const show = input.type === "password";
+    input.type = show ? "text" : "password";
+    button.setAttribute("aria-pressed", String(show));
+    button.setAttribute("aria-label", show ? "Masquer la clé" : "Afficher la clé");
+  }
+
+  async function openSettings() {
+    if (!settingsDialog) return;
+    if (typeof settingsDialog.showModal === "function" && !settingsDialog.open) settingsDialog.showModal();
+    else settingsDialog.setAttribute("open", "");
+    setSettingsStatus("Chargement des réglages…", "busy");
+    try {
+      const response = await fetch("/api/settings", { headers: { Accept: "application/json" } });
+      if (!response.ok) throw new Error(`Le serveur a répondu ${response.status}.`);
+      paintSettings(await response.json());
+    } catch (error) {
+      setSettingsStatus(`Réglages indisponibles — ${error.message}`, "ko");
+    }
+  }
+
+  function closeSettings() {
+    if (!settingsDialog || !settingsDialog.open) return;
+    if (typeof settingsDialog.close === "function") settingsDialog.close();
+    else settingsDialog.removeAttribute("open");
+  }
+
   function openHelp() {
     if (!helpDialog) return;
     if (typeof helpDialog.showModal === "function" && !helpDialog.open) helpDialog.showModal();
@@ -1649,6 +1875,19 @@
         else backToMain();
       });
     }
+    const settingsButton = $("#settingsButton");
+    if (settingsButton) settingsButton.addEventListener("click", openSettings);
+    if ($("#closeSettings")) $("#closeSettings").addEventListener("click", closeSettings);
+    if (settingsDialog) {
+      settingsDialog.addEventListener("click", (event) => {
+        if (event.target === settingsDialog) closeSettings();
+      });
+    }
+    if (settingsForm) settingsForm.addEventListener("submit", saveSettings);
+    if ($("#settingsTest")) $("#settingsTest").addEventListener("click", testSettings);
+    if ($("#settingsClearKey")) $("#settingsClearKey").addEventListener("click", clearKey);
+    if ($("#settingsReveal")) $("#settingsReveal").addEventListener("click", toggleReveal);
+    if ($("#settingsProvider")) $("#settingsProvider").addEventListener("change", syncProviderFields);
     $("#helpButton").addEventListener("click", openHelp);
     $("#closeHelp").addEventListener("click", closeHelp);
     helpDialog.addEventListener("click", (event) => {
@@ -1664,7 +1903,8 @@
       }
       if (event.key === "Escape") {
         // Échap remonte d'un cercle : note → thème → thèmes.
-        if (helpDialog && helpDialog.open) closeHelp();
+        if (settingsDialog && settingsDialog.open) closeSettings();
+        else if (helpDialog && helpDialog.open) closeHelp();
         else if (level === "detail") { if (themeFilter) openTheme(themeFilter); else backToMain(); }
         else if (level === "main" && !searchTerm) backToMain();
       }

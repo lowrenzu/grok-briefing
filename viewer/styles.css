@@ -400,6 +400,49 @@ button:hover .chevron { color: var(--cyan); transform: translateX(2px); }
 .assistant-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 0 13px 9px; color: #99aab3; font: 8.5px var(--mono); letter-spacing: .09em; }
 .foot-separator { color: var(--cyan); padding: 0 2px; }
 
+
+/* --- Panneau Réglages : brancher une IA sans toucher au terminal. ------------- */
+.settings-dialog { width: min(500px, calc(100vw - 24px)); max-height: min(90vh, 720px); overflow: auto; padding: 20px; border: 1px solid rgba(121,230,233,.28); border-radius: 15px; background: rgba(8,18,27,.97); color: var(--text); box-shadow: 0 25px 100px rgba(0,0,0,.6), 0 0 60px rgba(75,201,211,.09); scrollbar-width: thin; scrollbar-color: #334b58 transparent; }
+.settings-dialog::backdrop { background: rgba(0,4,9,.72); backdrop-filter: blur(5px); }
+.settings-form { display: flex; flex-direction: column; gap: 12px; margin: 0; }
+.settings-intro { margin: 0; color: #aec2cb; font-size: 11.5px; line-height: 1.55; }
+.settings-state { display: flex; align-items: center; gap: 10px; padding: 9px 11px; border: 1px solid var(--line); border-radius: 9px; background: rgba(255,255,255,.025); }
+.settings-state b, .settings-state small { display: block; }
+.settings-state b { font: 600 10.5px var(--mono); letter-spacing: .1em; color: #dff6fa; }
+.settings-state small { margin-top: 3px; color: #a7bcc6; font-size: 10.5px; line-height: 1.45; }
+.settings-dot { flex: 0 0 auto; width: 8px; height: 8px; border-radius: 50%; background: #7b8f99; box-shadow: 0 0 10px rgba(123,143,153,.6); }
+.settings-state.is-on { border-color: rgba(115,225,192,.34); background: rgba(115,225,192,.07); }
+.settings-state.is-on .settings-dot { background: #73e1c0; box-shadow: 0 0 12px rgba(115,225,192,.85); }
+.settings-state.is-warn { border-color: rgba(228,182,118,.34); background: rgba(228,182,118,.07); }
+.settings-state.is-warn .settings-dot { background: var(--amber); box-shadow: 0 0 12px rgba(228,182,118,.8); }
+.settings-field { display: grid; gap: 5px; }
+.settings-field[hidden] { display: none; }
+.settings-field label { color: #c8dbe3; font: 600 10px var(--mono); letter-spacing: .1em; text-transform: uppercase; }
+.settings-field input, .settings-field select { width: 100%; height: 34px; padding: 0 10px; border: 1px solid rgba(164,208,229,.26); border-radius: 7px; background: rgba(4,13,20,.72); color: #eef8fb; font-size: 12px; }
+.settings-field select { appearance: none; background-image: linear-gradient(45deg, transparent 50%, #9fd6e2 50%), linear-gradient(135deg, #9fd6e2 50%, transparent 50%); background-position: calc(100% - 15px) 14px, calc(100% - 10px) 14px; background-size: 5px 5px, 5px 5px; background-repeat: no-repeat; }
+.settings-field input:focus, .settings-field select:focus { outline: 2px solid rgba(126,232,244,.5); outline-offset: 1px; }
+.settings-field input::placeholder { color: #6f8590; }
+.settings-help { color: #96abb5; font-size: 10px; line-height: 1.45; }
+.settings-help code { color: var(--cyan); font: 10px var(--mono); }
+.settings-key { display: flex; gap: 6px; }
+.settings-key input { flex: 1; }
+.settings-eye { flex: 0 0 auto; width: 34px; height: 34px; border: 1px solid rgba(164,208,229,.26); border-radius: 7px; background: rgba(4,13,20,.72); color: #9ec3ce; cursor: pointer; font-size: 12px; }
+.settings-eye:hover, .settings-eye[aria-pressed="true"] { color: var(--cyan); border-color: var(--line-bright); }
+.settings-status { min-height: 15px; margin: 0; font-size: 11px; line-height: 1.45; }
+.settings-status.ok { color: #8fe6cd; }
+.settings-status.ko { color: #f0b9a4; }
+.settings-status.busy { color: #a9c8d3; }
+.settings-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.settings-test, .settings-clear, .settings-save { height: 32px; padding: 0 13px; border-radius: 8px; font: 10px var(--mono); letter-spacing: .09em; cursor: pointer; transition: .18s ease; }
+.settings-test { border: 1px solid rgba(148,181,203,.24); background: rgba(255,255,255,.035); color: #c8dde5; }
+.settings-test:hover { border-color: var(--line-bright); color: var(--cyan); }
+.settings-clear { border: 1px solid rgba(228,182,118,.24); background: rgba(228,182,118,.06); color: #e8c8a0; }
+.settings-clear:hover { border-color: rgba(228,182,118,.55); color: #ffe1ba; }
+.settings-save { margin-left: auto; border: 1px solid rgba(121,230,233,.42); background: linear-gradient(135deg, rgba(62,157,170,.3), rgba(75,201,211,.14)); color: #c6f7fb; font-weight: 600; }
+.settings-save:hover { border-color: rgba(121,230,233,.75); background: linear-gradient(135deg, rgba(62,157,170,.45), rgba(75,201,211,.2)); }
+.settings-save[disabled], .settings-test[disabled], .settings-clear[disabled] { opacity: .5; cursor: progress; }
+.settings-note { margin: 2px 0 0; padding-top: 10px; border-top: 1px solid var(--line); color: #93a7b1; font-size: 10px; line-height: 1.5; }
+
 .help-dialog { width: min(460px, calc(100vw - 24px)); max-height: min(88vh, 640px); padding: 21px; border: 1px solid rgba(121,230,233,.28); border-radius: 15px; background: rgba(8,18,27,.96); color: var(--text); box-shadow: 0 25px 100px rgba(0,0,0,.6), 0 0 60px rgba(75,201,211,.09); backdrop-filter: blur(16px); }
 .help-dialog::backdrop { background: rgba(0,4,9,.72); backdrop-filter: blur(5px); }
 .dialog-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 15px; }
@@ -487,6 +530,12 @@ button:hover .chevron { color: var(--cyan); transform: translateX(2px); }
   .stage-hint .hint-keys { display: none; }
   .node-label { font-size: 11px; }
   .node-label.is-theme, .node-label.is-note.is-emphasis { font-size: 12px; }
+}
+@media (max-width: 680px) {
+  .settings-dialog { width: calc(100vw - 16px); padding: 15px; }
+  .settings-actions { flex-direction: column; align-items: stretch; }
+  .settings-save { margin-left: 0; }
+  .settings-field input, .settings-field select { height: 40px; font-size: 14px; }
 }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; }

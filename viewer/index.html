@@ -6,11 +6,11 @@
   <meta name="theme-color" content="#070b12">
   <meta name="description" content="JARVIS — votre assistant personnel, dans un cockpit holographique.">
   <title>JARVIS — Personal AI Command Center</title>
-  <link rel="preload" as="image" type="image/avif" href="/assets/jarvis-core-ring.avif?v=20261029l" fetchpriority="high">
-  <link rel="preload" as="image" type="image/avif" href="/assets/jarvis-core-disc.avif?v=20261029l" fetchpriority="high">
-  <link rel="stylesheet" href="/styles.css?v=20261029l">
-  <script defer src="/graph-data.js?v=20261029l"></script>
-  <script defer src="/app.js?v=20261029l"></script>
+  <link rel="preload" as="image" type="image/avif" href="/assets/jarvis-core-ring.avif?v=20261029n" fetchpriority="high">
+  <link rel="preload" as="image" type="image/avif" href="/assets/jarvis-core-disc.avif?v=20261029n" fetchpriority="high">
+  <link rel="stylesheet" href="/styles.css?v=20261029n">
+  <script defer src="/graph-data.js?v=20261029n"></script>
+  <script defer src="/app.js?v=20261029n"></script>
 </head>
 <body>
   <div class="screen-shade" aria-hidden="true"></div>
@@ -23,6 +23,7 @@
     <div class="topbar-right">
       <div class="top-stat"><span class="stat-icon">✳</span><span><b id="noteCount">0</b><small>NOTES</small></span></div>
       <div class="top-stat"><span class="stat-icon">⌁</span><span><b id="linkCount">0</b><small>LIENS</small></span></div>
+      <button class="icon-button help-button" id="settingsButton" type="button" aria-label="Ouvrir les réglages" title="Réglages : IA, clé, notes">⚙</button>
       <button class="icon-button help-button" id="helpButton" type="button" aria-label="Afficher l'aide" title="Aide">?</button>
     </div>
   </header>
@@ -81,16 +82,16 @@
         <canvas id="galaxy" role="img" aria-label="Galaxie interactive de vos notes. Faites glisser pour tourner, cliquez sur une étoile pour ouvrir sa source."></canvas>
         <div class="stage-vignette" aria-hidden="true"></div>
         <div class="jarvis-core" id="jarvisCore" aria-hidden="true">
-          <span class="jarvis-core-layer core-ring"><img src="/assets/jarvis-core-ring.avif?v=20261029l" alt="" decoding="async" fetchpriority="high"></span>
-          <span class="jarvis-core-layer core-veil"><img src="/assets/jarvis-core-veil.avif?v=20261029l" alt="" decoding="async"></span>
+          <span class="jarvis-core-layer core-ring"><img src="/assets/jarvis-core-ring.avif?v=20261029n" alt="" decoding="async" fetchpriority="high"></span>
+          <span class="jarvis-core-layer core-veil"><img src="/assets/jarvis-core-veil.avif?v=20261029n" alt="" decoding="async"></span>
           <span class="jarvis-core-layer core-disc">
-            <img class="core-disc-base" src="/assets/jarvis-core-disc.avif?v=20261029l" alt="" decoding="async" fetchpriority="high">
-            <img class="core-voice-tint core-voice-violet" src="/assets/jarvis-core-hud-violet.avif?v=20261029l" alt="" decoding="async">
-            <img class="core-voice-tint core-voice-ambre" src="/assets/jarvis-core-hud-ambre.avif?v=20261029l" alt="" decoding="async">
+            <img class="core-disc-base" src="/assets/jarvis-core-disc.avif?v=20261029n" alt="" decoding="async" fetchpriority="high">
+            <img class="core-voice-tint core-voice-violet" src="/assets/jarvis-core-hud-violet.avif?v=20261029n" alt="" decoding="async">
+            <img class="core-voice-tint core-voice-ambre" src="/assets/jarvis-core-hud-ambre.avif?v=20261029n" alt="" decoding="async">
             <i class="core-disc-sweep"></i>
             <i class="core-disc-spark"></i>
           </span>
-          <span class="jarvis-core-layer core-light"><img src="/assets/jarvis-core-light.avif?v=20261029l" alt="" decoding="async"></span>
+          <span class="jarvis-core-layer core-light"><img src="/assets/jarvis-core-light.avif?v=20261029n" alt="" decoding="async"></span>
           <span class="jarvis-core-beam" aria-hidden="true"></span>
           <span class="jarvis-core-base" aria-hidden="true"></span>
         </div>
@@ -143,6 +144,64 @@
     </aside>
   </main>
 
-  <dialog class="help-dialog" id="helpDialog"><div class="dialog-head"><div><div class="eyebrow">PRISE EN MAIN</div><h2>Votre JARVIS, en privé.</h2></div><button class="icon-button" id="closeHelp" type="button" aria-label="Fermer">×</button></div><p>La constellation des notes s’affiche en orbite autour de l’hologramme de JARVIS, sans recouvrir son visage. La météo tente une connexion en direct à Open-Meteo pour Sanguinet; seules les coordonnées de la ville sont transmises. Les autres profils d’agents et les recommandations restent des exemples.</p><div class="help-steps"><div><span>01</span><p><b>Vos notes</b><small>Configurez le dossier de fichiers <code>.md</code> dans <code>config.json</code>. Les 25 notes livrées sont fictives.</small></p></div><div><span>02</span><p><b>Le cerveau IA</b><small>Ajoutez votre clé Anthropic localement dans <code>config.json</code>. Sans clé, la recherche locale reste disponible.</small></p></div><div><span>03</span><p><b>La voix</b><small>Activez la voix pour entendre JARVIS et voir son hologramme s’éclairer pendant la lecture; la dictée fonctionne avec Chrome ou Edge.</small></p></div></div><p class="help-note">Source météo : <a href="https://open-meteo.com/" target="_blank" rel="noopener noreferrer">Open-Meteo.com</a> (requête envoyée depuis le serveur, coordonnées fixes de Sanguinet). Avec une clé Anthropic, seuls les extraits de notes pertinents sont envoyés au modèle par le serveur; la clé ne quitte jamais le serveur.</p></dialog>
+
+  <dialog class="settings-dialog" id="settingsDialog" aria-labelledby="settingsTitle">
+    <form class="settings-form" id="settingsForm" novalidate>
+      <div class="dialog-head">
+        <div><div class="eyebrow">RÉGLAGES</div><h2 id="settingsTitle">Le cerveau de JARVIS<span class="title-period">.</span></h2></div>
+        <button class="icon-button" id="closeSettings" type="button" aria-label="Fermer les réglages">×</button>
+      </div>
+      <p class="settings-intro">Branchez une IA payante si vous le souhaitez. Sans clé, JARVIS continue de chercher dans vos notes, en local et gratuitement.</p>
+
+      <div class="settings-state" id="settingsState">
+        <span class="settings-dot" aria-hidden="true"></span>
+        <span><b id="settingsStateTitle">MODE LOCAL</b><small id="settingsStateText">Recherche par mots-clés dans vos notes. Aucune donnée ne sort de cet appareil.</small></span>
+      </div>
+
+      <div class="settings-field">
+        <label for="settingsProvider">Fournisseur d’IA</label>
+        <select id="settingsProvider" name="provider"></select>
+        <small class="settings-help" id="settingsProviderHint">Choisissez le service qui répondra à vos questions.</small>
+      </div>
+
+      <div class="settings-field">
+        <label for="settingsModel">Modèle</label>
+        <input id="settingsModel" name="model" type="text" autocomplete="off" spellcheck="false" placeholder="nom exact du modèle">
+        <small class="settings-help">Le nom doit être celui fourni par le service (onglet « modèles » de votre compte).</small>
+      </div>
+
+      <div class="settings-field" id="settingsUrlField" hidden>
+        <label for="settingsUrl">Adresse de l’API</label>
+        <input id="settingsUrl" name="baseUrl" type="url" autocomplete="off" spellcheck="false" placeholder="http://127.0.0.1:11434/v1/chat/completions">
+        <small class="settings-help">Pour un modèle installé sur votre PC ou un service compatible OpenAI.</small>
+      </div>
+
+      <div class="settings-field">
+        <label for="settingsKey">Clé API</label>
+        <div class="settings-key">
+          <input id="settingsKey" name="apiKey" type="password" autocomplete="off" spellcheck="false" placeholder="collez votre clé ici">
+          <button class="settings-eye" id="settingsReveal" type="button" aria-label="Afficher la clé" aria-pressed="false">◉</button>
+        </div>
+        <small class="settings-help" id="settingsKeyHint">Enregistrée uniquement dans <code>config.json</code>, sur ce serveur. Jamais dans la page, jamais dans le navigateur.</small>
+      </div>
+
+      <div class="settings-field">
+        <label for="settingsNotes">Dossier de vos notes</label>
+        <input id="settingsNotes" name="notesDir" type="text" autocomplete="off" spellcheck="false" placeholder="exemples, ou /home/moi/Documents/notes">
+        <small class="settings-help" id="settingsNotesHint">Fichiers <code>.md</code>. Laissez vide pour les notes de démonstration.</small>
+      </div>
+
+      <p class="settings-status" id="settingsStatus" role="status" aria-live="polite"></p>
+
+      <div class="settings-actions">
+        <button class="settings-test" id="settingsTest" type="button">TESTER</button>
+        <button class="settings-clear" id="settingsClearKey" type="button">EFFACER LA CLÉ</button>
+        <button class="settings-save" id="settingsSave" type="submit">ENREGISTRER</button>
+      </div>
+
+      <p class="settings-note">La clé est facturée par le fournisseur que vous choisissez, jamais par JARVIS. Sur votre Wi‑Fi, l’interface n’a pas de mot de passe : n’ouvrez le serveur qu’en confiance, et les réglages ne s’enregistrent que depuis le PC où il tourne.</p>
+    </form>
+  </dialog>
+  <dialog class="help-dialog" id="helpDialog"><div class="dialog-head"><div><div class="eyebrow">PRISE EN MAIN</div><h2>Votre JARVIS, en privé.</h2></div><button class="icon-button" id="closeHelp" type="button" aria-label="Fermer">×</button></div><p>La constellation des notes s’affiche en orbite autour de l’hologramme de JARVIS, sans recouvrir son visage. La météo tente une connexion en direct à Open-Meteo pour Sanguinet; seules les coordonnées de la ville sont transmises. Les autres profils d’agents et les recommandations restent des exemples.</p><div class="help-steps"><div><span>01</span><p><b>Vos notes</b><small>Configurez le dossier de fichiers <code>.md</code> dans <code>config.json</code>. Les 25 notes livrées sont fictives.</small></p></div><div><span>02</span><p><b>Le cerveau IA</b><small>Ouvrez les <b>Réglages</b> (l’engrenage en haut à droite) pour choisir un fournisseur et coller votre clé, ou rester en mode local gratuit. Testez la connexion d’un clic.</small></p></div><div><span>03</span><p><b>La voix</b><small>Activez la voix pour entendre JARVIS et voir son hologramme s’éclairer pendant la lecture; la dictée fonctionne avec Chrome ou Edge.</small></p></div></div><p class="help-note">Source météo : <a href="https://open-meteo.com/" target="_blank" rel="noopener noreferrer">Open-Meteo.com</a> (requête envoyée depuis le serveur, coordonnées fixes de Sanguinet). Avec une clé Anthropic, seuls les extraits de notes pertinents sont envoyés au modèle par le serveur; la clé ne quitte jamais le serveur.</p></dialog>
 </body>
 </html>
