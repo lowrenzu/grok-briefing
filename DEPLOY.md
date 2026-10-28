@@ -147,16 +147,23 @@ Depuis cette version, JARVIS peut exiger une **connexion Google** avant d'affich
 
 ### 1. Créer l'identifiant dans Google Cloud (5 minutes, gratuit)
 
-1. Ouvrez <https://console.cloud.google.com/> et créez un projet, par exemple `jarvis`.
-2. Menu **APIs & Services → OAuth consent screen** :
-   - type **External**, nom de l'application `JARVIS`, votre e-mail comme contact ;
-   - dans **Test users**, ajoutez **votre adresse Gmail** (indispensable : en mode test, seuls ces comptes peuvent se connecter) ;
-   - laissez l'application en mode **Testing** : c'est fait pour un usage personnel, aucune vérification Google n'est demandée.
-3. Menu **APIs & Services → Credentials → Create credentials → OAuth client ID** :
-   - type **Web application**, nom `JARVIS web` ;
-   - **Authorized redirect URIs** : `https://jarvis.mondomaine.fr/auth/callback` (le domaine exact que vous utiliserez) ;
-   - pour un essai local, ajoutez aussi `http://localhost:4700/auth/callback`.
-4. Copiez le **Client ID** et le **Client secret**.
+> **La console en français** : ajoutez `?hl=fr` à n'importe quelle adresse `console.cloud.google.com`, ou choisissez *Français* dans le sélecteur de langue en bas de page. Les libellés ci-dessous sont donnés dans les deux langues.
+
+> **Attention, l'interface a changé** : depuis 2025, l'ancien « Écran de consentement OAuth » s'appelle **Google Auth Platform** / **Plateforme d'authentification Google**, avec quatre onglets : **Branding / Image de marque**, **Audience**, **Data access / Accès aux données**, **Clients**. Les anciens tutoriels avec captures ne correspondent plus.
+
+1. Ouvrez <https://console.cloud.google.com/?hl=fr> et **créez un projet** (par exemple `jarvis`).
+2. **API et services → Plateforme d'authentification Google** (`APIs & Services → Google Auth Platform`) :
+   - cliquez sur **Commencer / Get started** et remplissez l'assistant ;
+   - **Image de marque** (*Branding*) : nom de l'application `JARVIS`, votre adresse e-mail comme contact. C'est aussi ici que se trouve **Langues / Languages** : ajoutez le **français** pour que la page de connexion Google s'affiche en français ;
+   - **Audience** : type **Externe** (*External*), puis dans **Utilisateurs tests** (*Test users*) ajoutez `funk.e.lee@gmail.com` et, plus tard, Anna. En mode **Test**, Google n'autorise que ces comptes : c'est voulu, et aucune vérification n'est demandée pour un usage personnel.
+3. **Clients** (`Clients`, anciennement *Credentials / Identifiants*) → **Créer un client** (*Create client*) :
+   - type d'application : **Application Web** (*Web application*) ;
+   - nom : `JARVIS web` ;
+   - **URI de redirection autorisés** (*Authorized redirect URIs*) : `https://jarvis.mondomaine.fr/auth/callback` (le domaine exact que vous utiliserez) ;
+   - pour un essai sur votre PC, ajoutez aussi `http://localhost:4700/auth/callback`.
+4. Copiez le **ID client** (*Client ID*) et le **Code secret du client** (*Client secret*).
+
+> ⚠️ Le **code secret n'est affiché qu'une seule fois** à la création. Copiez-le tout de suite. Si vous le perdez, créez-en un nouveau dans l'onglet **Clients** (l'ancien peut être supprimé).
 
 ### 2. Renseigner JARVIS
 
