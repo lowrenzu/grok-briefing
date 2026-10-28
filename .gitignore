@@ -1,0 +1,13 @@
+# Secrets et données personnelles locales
+/config.json
+/notes/
+/examples/demo-notes/captures/
+/viewer/graph-data.js
+
+# Fichiers Python et système
+__pycache__/
+*.py[cod]
+.DS_Store
+
+# Aperçus de contrôle générés localement
+/.preview-*
