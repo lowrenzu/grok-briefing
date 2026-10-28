@@ -299,45 +299,8 @@
 
     drawOrbitGuides(time, showingThemes);
 
-    // --- Liens : arcs concentriques avec un flux lumineux qui circule.
-    let drawnFocusEdges = 0;
-    const focusEdgeLimit = labelIds.size >= 4 ? 18 : 12;
-    if (!showingThemes) {
-      for (const link of graph.links) {
-        const { source, target } = linkIds(link);
-        if (!displayedIds.has(source) || !displayedIds.has(target)) continue;
-        const relevantEdge = labelIds.has(source) || labelIds.has(target) || source === hoveredId || target === hoveredId;
-        if (!graphOverview && activeGroup === null && !relevantEdge) continue;
-        if (!graphOverview && activeGroup === null && drawnFocusEdges >= focusEdgeLimit) continue;
-        if (!graphOverview && activeGroup === null) drawnFocusEdges += 1;
-        const a = points.get(source);
-        const b = points.get(target);
-        if (!a || !b) continue;
-        const bright = labelIds.has(source) && labelIds.has(target) || labelIds.size <= 1 && (source === selectedId || target === selectedId);
-        const centerX = orbit.cx;
-        const centerY = orbit.cy;
-        const startAngle = Math.atan2(a.y - centerY, a.x - centerX);
-        const endAngle = Math.atan2(b.y - centerY, b.x - centerX);
-        let angleDelta = endAngle - startAngle;
-        while (angleDelta > Math.PI) angleDelta -= Math.PI * 2;
-        while (angleDelta < -Math.PI) angleDelta += Math.PI * 2;
-        const arcRadius = (Math.hypot(a.x - centerX, a.y - centerY) + Math.hypot(b.x - centerX, b.y - centerY)) / 2;
-        context.save();
-        context.beginPath();
-        context.arc(centerX, centerY, arcRadius, startAngle, startAngle + angleDelta, angleDelta < 0);
-        context.lineWidth = bright ? 1.3 : .7;
-        context.strokeStyle = bright ? "rgba(120, 236, 240, .5)" : "rgba(107, 196, 217, .16)";
-        context.globalAlpha = Math.min(a.alpha, b.alpha) * (bright ? .9 : .55);
-        context.stroke();
-        // Le flux lumineux qui parcourt l'arc rend le réseau lisible et vivant.
-        context.setLineDash([2, 26]);
-        context.lineDashOffset = -time * 46;
-        context.lineWidth = 1.7;
-        context.strokeStyle = bright ? "rgba(196, 252, 255, .9)" : "rgba(150, 232, 245, .38)";
-        context.stroke();
-        context.restore();
-      }
-    }
+    // --- Liens : les mêmes arcs à flux lumineux à chaque cercle.
+    drawLinkArcs(time, displayed, points, displayedIds, showingThemes, byId);
     context.globalAlpha = 1;
     context.setLineDash([]);
 
@@ -479,6 +442,93 @@
     x = Math.max(margin, Math.min(width - margin, x));
     y = Math.max(18, Math.min(height - 18, y));
     return { x, y };
+  }
+
+  // Construction des arcs : thèmes ↔ thèmes au premier cercle (agrégation des liens
+  // entre notes), puis notes ↔ notes aux cercles suivants. Une seule règle partout,
+  // donc le même effet de flux lumineux à chaque niveau.
+  function linkArcs(displayed, showingThemes, byId) {
+    const arcs = [];
+    if (showingThemes) {
+      const themeIds = new Map();
+      for (const node of displayed) themeIds.set(node.theme, node.id);
+      const counts = new Map();
+      for (const link of graph.links) {
+        const { source, target } = linkIds(link);
+        const sourceNode = byId.get(source);
+        const targetNode = byId.get(target);
+        if (!sourceNode || !targetNode) continue;
+        const from = themeIds.get(sourceNode.theme || "MES NOTES");
+        const to = themeIds.get(targetNode.theme || "MES NOTES");
+        if (!from || !to || from === to) continue;
+        const key = from < to ? `${from}@@${to}` : `${to}@@${from}`;
+        counts.set(key, (counts.get(key) || 0) + 1);
+      }
+      for (const [key, weight] of counts) {
+        const [from, to] = key.split("@@");
+        arcs.push({ from, to, weight, bright: false });
+      }
+      return arcs;
+    }
+    for (const link of graph.links) {
+      const { source, target } = linkIds(link);
+      if (!byId.has(source) || !byId.has(target)) continue;
+      const bright = (labelIds.has(source) && labelIds.has(target))
+        || (labelIds.size <= 1 && (source === selectedId || target === selectedId))
+        || source === hoveredId || target === hoveredId;
+      arcs.push({ from: source, to: target, weight: 1, bright });
+    }
+    return arcs;
+  }
+
+  function drawLinkArcs(time, displayed, points, displayedIds, showingThemes, byId) {
+    const arcs = linkArcs(displayed, showingThemes, byId)
+      .filter((arc) => displayedIds.has(arc.from) && displayedIds.has(arc.to))
+      .filter((arc) => points.get(arc.from) && points.get(arc.to));
+    if (!arcs.length) return;
+    // Priorité aux liens mis en avant, puis aux mieux partagés : l'essentiel reste
+    // lisible même quand un thème contient beaucoup de notes.
+    arcs.sort((a, b) => (Number(b.bright) - Number(a.bright)) || (b.weight - a.weight));
+    // Premier cercle : on garde les relations les plus denses pour rester lisible.
+    const limit = showingThemes ? 12 : labelIds.size >= 4 ? 20 : 24;
+    const kept = arcs.slice(0, limit).sort((a, b) => a.weight - b.weight);
+    const centerX = orbit.cx;
+    const centerY = orbit.cy;
+    const flowSpeed = 46;      // pixels/seconde : identique à tous les niveaux
+    const dash = [2, 26];
+    for (const arc of kept) {
+      const a = points.get(arc.from);
+      const b = points.get(arc.to);
+      const startAngle = Math.atan2(a.y - centerY, a.x - centerX);
+      const endAngle = Math.atan2(b.y - centerY, b.x - centerX);
+      let angleDelta = endAngle - startAngle;
+      while (angleDelta > Math.PI) angleDelta -= Math.PI * 2;
+      while (angleDelta < -Math.PI) angleDelta += Math.PI * 2;
+      const arcRadius = (Math.hypot(a.x - centerX, a.y - centerY) + Math.hypot(b.x - centerX, b.y - centerY)) / 2;
+      // Épaisseur et intensité proportionnelles au nombre de liens agrégés.
+      const strength = Math.min(1, .45 + (arc.weight - 1) * .16);
+      const bright = arc.bright;
+      const alpha = Math.min(a.alpha, b.alpha) * (bright ? .95 : showingThemes ? .3 + strength * .3 : .55 * strength);
+      // Chaque arc respire à son propre rythme : le réseau reste vivant sans clignoter.
+      const breath = .82 + .18 * Math.sin(time * 1.35 + (arc.from.length + arc.to.length) * .7);
+      context.save();
+      context.beginPath();
+      context.arc(centerX, centerY, arcRadius, startAngle, startAngle + angleDelta, angleDelta < 0);
+      context.lineWidth = (bright ? 1.3 : .7) + (arc.weight > 1 ? Math.min(1.1, arc.weight * .07) : 0);
+      context.strokeStyle = bright ? "rgba(120, 236, 240, .5)" : "rgba(107, 196, 217, .2)";
+      context.globalAlpha = alpha * breath;
+      context.stroke();
+      // Le flux lumineux qui parcourt l'arc : même motif, même vitesse partout.
+      context.setLineDash(dash);
+      context.lineDashOffset = -time * flowSpeed;
+      context.lineWidth = bright ? 1.8 : 1.4;
+      context.strokeStyle = bright ? "rgba(196, 252, 255, .92)" : "rgba(150, 232, 245, .42)";
+      context.globalAlpha = alpha * breath * (bright ? 1 : .9);
+      context.stroke();
+      context.restore();
+    }
+    context.globalAlpha = 1;
+    context.setLineDash([]);
   }
 
   function drawPill(x, y, radius, alpha, glow, ringRadius) {
