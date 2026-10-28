@@ -6,9 +6,11 @@
   <meta name="theme-color" content="#070b12">
   <meta name="description" content="JARVIS — votre assistant personnel, dans un cockpit holographique.">
   <title>JARVIS — Personal AI Command Center</title>
-  <link rel="stylesheet" href="/styles.css?v=20261029b">
-  <script defer src="/graph-data.js?v=20261029b"></script>
-  <script defer src="/app.js?v=20261029b"></script>
+  <link rel="preload" as="image" type="image/avif" href="/assets/jarvis-core-ring.avif?v=20261029d" fetchpriority="high">
+  <link rel="preload" as="image" type="image/avif" href="/assets/jarvis-core-disc.avif?v=20261029d" fetchpriority="high">
+  <link rel="stylesheet" href="/styles.css?v=20261029d">
+  <script defer src="/graph-data.js?v=20261029d"></script>
+  <script defer src="/app.js?v=20261029d"></script>
 </head>
 <body>
   <div class="screen-shade" aria-hidden="true"></div>
@@ -79,16 +81,16 @@
         <canvas id="galaxy" role="img" aria-label="Galaxie interactive de vos notes. Faites glisser pour tourner, cliquez sur une étoile pour ouvrir sa source."></canvas>
         <div class="stage-vignette" aria-hidden="true"></div>
         <div class="jarvis-core" id="jarvisCore" aria-hidden="true">
-          <span class="jarvis-core-layer core-ring"><img src="/assets/jarvis-core-ring.png" alt="" decoding="async" fetchpriority="high"></span>
-          <span class="jarvis-core-layer core-veil"><img src="/assets/jarvis-core-veil.png" alt="" decoding="async"></span>
+          <span class="jarvis-core-layer core-ring"><picture><source type="image/avif" srcset="/assets/jarvis-core-ring.avif?v=20261029d"><img src="/assets/jarvis-core-ring.png?v=20261029d" alt="" decoding="async" fetchpriority="high"></picture></span>
+          <span class="jarvis-core-layer core-veil"><picture><source type="image/avif" srcset="/assets/jarvis-core-veil.avif?v=20261029d"><img src="/assets/jarvis-core-veil.png?v=20261029d" alt="" decoding="async"></picture></span>
           <span class="jarvis-core-layer core-disc">
-            <img class="core-disc-base" src="/assets/jarvis-core-disc.png" alt="" decoding="async">
-            <img class="core-voice-tint core-voice-violet" src="/assets/jarvis-core-hud-violet.png" alt="" decoding="async">
-            <img class="core-voice-tint core-voice-ambre" src="/assets/jarvis-core-hud-ambre.png" alt="" decoding="async">
+            <picture><source type="image/avif" srcset="/assets/jarvis-core-disc.avif?v=20261029d"><img class="core-disc-base" src="/assets/jarvis-core-disc.png?v=20261029d" alt="" decoding="async" fetchpriority="high"></picture>
+            <picture><source type="image/avif" srcset="/assets/jarvis-core-hud-violet.avif?v=20261029d"><img class="core-voice-tint core-voice-violet" src="/assets/jarvis-core-hud-violet.png?v=20261029d" alt="" decoding="async"></picture>
+            <picture><source type="image/avif" srcset="/assets/jarvis-core-hud-ambre.avif?v=20261029d"><img class="core-voice-tint core-voice-ambre" src="/assets/jarvis-core-hud-ambre.png?v=20261029d" alt="" decoding="async"></picture>
             <i class="core-disc-sweep"></i>
             <i class="core-disc-spark"></i>
           </span>
-          <span class="jarvis-core-layer core-light"><img src="/assets/jarvis-core-light.png" alt="" decoding="async"></span>
+          <span class="jarvis-core-layer core-light"><picture><source type="image/avif" srcset="/assets/jarvis-core-light.avif?v=20261029d"><img src="/assets/jarvis-core-light.png?v=20261029d" alt="" decoding="async"></picture></span>
           <span class="jarvis-core-beam" aria-hidden="true"></span>
           <span class="jarvis-core-base" aria-hidden="true"></span>
         </div>

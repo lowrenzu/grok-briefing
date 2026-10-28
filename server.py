@@ -511,6 +511,12 @@ class JarvisHandler(BaseHTTPRequestHandler):
             "/assets/jarvis-core-light.png": ROOT / "viewer" / "assets" / "jarvis-core-light.png",
             "/assets/jarvis-core-hud-violet.png": ROOT / "viewer" / "assets" / "jarvis-core-hud-violet.png",
             "/assets/jarvis-core-hud-ambre.png": ROOT / "viewer" / "assets" / "jarvis-core-hud-ambre.png",
+            "/assets/jarvis-core-ring.avif": ROOT / "viewer" / "assets" / f"jarvis-core-ring.avif",
+            "/assets/jarvis-core-veil.avif": ROOT / "viewer" / "assets" / f"jarvis-core-veil.avif",
+            "/assets/jarvis-core-disc.avif": ROOT / "viewer" / "assets" / f"jarvis-core-disc.avif",
+            "/assets/jarvis-core-light.avif": ROOT / "viewer" / "assets" / f"jarvis-core-light.avif",
+            "/assets/jarvis-core-hud-violet.avif": ROOT / "viewer" / "assets" / f"jarvis-core-hud-violet.avif",
+            "/assets/jarvis-core-hud-ambre.avif": ROOT / "viewer" / "assets" / f"jarvis-core-hud-ambre.avif",
         }
         asset = assets.get(path)
         if asset is None:
@@ -527,11 +533,17 @@ class JarvisHandler(BaseHTTPRequestHandler):
             ".js": "text/javascript; charset=utf-8",
             ".jpg": "image/jpeg",
             ".png": "image/png",
+            ".avif": "image/avif",
         }.get(asset.suffix, "application/octet-stream")
         self.send_response(HTTPStatus.OK)
         self.send_header("Content-Type", content_type)
         self.send_header("Content-Length", str(len(body)))
-        self.send_header("Cache-Control", "no-store")
+        # Le HTML n'est jamais mis en cache ; les ressources portent ?v=… et peuvent
+        # donc rester en cache un an : recharger JARVIS ne retélécharge plus les images.
+        if asset.suffix == ".html":
+            self.send_header("Cache-Control", "no-store")
+        else:
+            self.send_header("Cache-Control", "public, max-age=31536000, immutable")
         self.send_header("X-Content-Type-Options", "nosniff")
         self.send_header("Referrer-Policy", "same-origin")
         self.send_header("X-Frame-Options", "DENY")

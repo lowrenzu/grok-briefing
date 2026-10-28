@@ -432,14 +432,14 @@
     const outwardY = radialY / length;
     context.save();
     context.globalAlpha = alpha;
-    context.font = `${emphasis ? 11 : 10}px ui-monospace, SFMono-Regular, Menlo, monospace`;
+    context.font = `${emphasis ? 13 : 12}px ui-monospace, SFMono-Regular, Menlo, monospace`;
     context.textBaseline = "middle";
     context.shadowColor = "rgba(0, 0, 0, .98)";
     context.shadowBlur = 7;
     context.fillStyle = emphasis ? "#f6ffff" : "#dcf3f8";
     const label = text.length > 24 ? `${text.slice(0, 22)}…` : text;
-    const maxWidth = Math.min(174, Math.max(110, width * .28));
-    const offset = radius + 11;
+    const maxWidth = Math.min(196, Math.max(124, width * .3));
+    const offset = radius + 12;
     const side = Math.abs(outwardX) > .72;
     context.textAlign = side ? "center" : outwardX > .25 ? "left" : outwardX < -.25 ? "right" : "center";
     let labelX = point.x + (side ? 0 : outwardX * offset);
@@ -469,17 +469,17 @@
     context.shadowBlur = 7;
     context.lineWidth = 3;
     context.strokeStyle = "rgba(2,10,16,.85)";
-    context.font = `600 ${isHovered ? 13 : 12}px ui-monospace, SFMono-Regular, Menlo, monospace`;
+    context.font = `600 ${isHovered ? 15 : 14}px ui-monospace, SFMono-Regular, Menlo, monospace`;
     context.fillStyle = isHovered ? "#ffffff" : "#e6fbff";
-    const labelY = point.y + radius * 2.6 + 11;
-    context.strokeText(node.label, point.x, labelY, 176);
-    context.fillText(node.label, point.x, labelY, 176);
-    context.font = `9px ui-monospace, SFMono-Regular, Menlo, monospace`;
+    const labelY = point.y + radius * 2.6 + 13;
+    context.strokeText(node.label, point.x, labelY, 196);
+    context.fillText(node.label, point.x, labelY, 196);
+    context.font = `11px ui-monospace, SFMono-Regular, Menlo, monospace`;
     context.globalAlpha = point.alpha * (empty ? .35 : .72);
     context.fillStyle = "#bfe6ef";
     const countText = node.count ? `${node.count} note${node.count > 1 ? "s" : ""}` : "aucune note";
-    context.strokeText(countText, point.x, labelY + 15, 130);
-    context.fillText(countText, point.x, labelY + 15, 130);
+    context.strokeText(countText, point.x, labelY + 17, 150);
+    context.fillText(countText, point.x, labelY + 17, 150);
     context.restore();
   }
 
@@ -1555,8 +1555,20 @@
     // L'index numérique des nœuds est un contrat utilisé par le serveur et l'interface.
     graph.nodes.forEach((node, index) => { node.id = index; });
   }
+  // Le cœur holographique apparaît d'un bloc, une fois toutes ses couches prêtes :
+  // sinon on voyait les anneaux se poser un par un au rythme du chargement.
+  function revealCore() {
+    const images = Array.from(document.querySelectorAll(".jarvis-core img"));
+    const done = () => document.body.classList.add("core-ready");
+    Promise.all(images.map((image) => (image.decode ? image.decode().catch(() => {}) : Promise.resolve())))
+      .then(done)
+      .catch(done);
+    window.setTimeout(done, 2500); // filet de sécurité : jamais de scène vide
+  }
+
   updateGraph(graph);
   createStars();
+  revealCore();
   wireEvents();
   resizeCanvas();
   updateClock();

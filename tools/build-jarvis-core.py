@@ -29,7 +29,9 @@ from PIL import Image, ImageDraw, ImageFilter
 ROOT = Path(__file__).resolve().parent.parent
 ASSETS = ROOT / "viewer" / "assets"
 SOURCES = ROOT / "tools" / "sources"
-EXPORT = 640  # 1,7× le diamètre CSS de 380 px : net sur écran Retina
+EXPORT = 896      # 1,8× le diamètre CSS maximal (500 px) : net sur écran Retina
+FALLBACK = 640    # repli PNG pour les navigateurs sans AVIF
+AVIF_QUALITY = 58 # même rendu que le PNG à l'œil, dix fois plus léger
 
 
 def load(name: str) -> np.ndarray:
@@ -85,13 +87,19 @@ def to_square(rgb: np.ndarray, alpha: np.ndarray, size: int) -> tuple[np.ndarray
 
 
 def save(rgb: np.ndarray, alpha: np.ndarray, name: str) -> None:
+    """Écrit la version servie (.avif, légère) et le repli .png."""
     data = np.dstack([rgb, alpha]).clip(0, 1) * 255.0
     image = Image.fromarray(data.astype(np.uint8), "RGBA")
     if image.size != (EXPORT, EXPORT):
         image = image.resize((EXPORT, EXPORT), Image.Resampling.LANCZOS)
-    destination = ASSETS / name
-    image.save(destination, optimize=True)
-    print(f"{name:26s} {destination.stat().st_size:>8,} octets  bbox {image.getchannel('A').getbbox()}")
+    stem = Path(name).stem
+    web = ASSETS / f"{stem}.avif"
+    image.save(web, "AVIF", quality=AVIF_QUALITY, speed=6)
+    fallback = ASSETS / f"{stem}.png"
+    small = image.resize((FALLBACK, FALLBACK), Image.Resampling.LANCZOS)
+    small.save(fallback, optimize=True)
+    print(f"{name:18s} avif {web.stat().st_size:>7,} o · png {fallback.stat().st_size:>7,} o"
+          f"  bbox {image.getchannel('A').getbbox()}")
 
 
 def solidify(alpha: np.ndarray, rgb: np.ndarray, fill_colour: str,
