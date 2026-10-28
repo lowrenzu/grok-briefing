@@ -217,8 +217,8 @@ def build_light() -> None:
 LAYERS = (
     # (fichier, part du diamètre extérieur, mode de fusion, opacité repos, opacité parole)
     ("jarvis-core-ring.png", 1.00, "normal", .90, 1.0),
-    ("jarvis-core-disc.png", .78, "screen", .85, 1.0),
     ("jarvis-core-veil.png", .66, "screen", .45, .80),
+    ("jarvis-core-disc.png", .78, "screen", .85, 1.0),
     ("jarvis-core-light.png", .30, "screen", .88, 1.0),
 )
 
