@@ -53,6 +53,9 @@
   let speechWatchdog = null;
   let stars = [];
   let projectedNodes = [];
+  // Couronne de notes : son rayon se déduit du cœur mesuré à l'écran, pour que les
+  // notes restent juste autour de JARVIS au lieu de partir vers les bords de la scène.
+  const orbit = { cx: 0, cy: 0, inner: 0, depth: 0 };
   const positions = new Map();
   const pulseTimes = new Map();
 
@@ -96,6 +99,25 @@
     canvas.width = Math.round(width * pixelRatio);
     canvas.height = Math.round(height * pixelRatio);
     context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+    measureOrbit(rect);
+  }
+
+  function measureOrbit(stageRect) {
+    const base = Math.min(width, height);
+    let heart = base * .275;
+    const coreRect = core ? core.getBoundingClientRect() : null;
+    if (coreRect && coreRect.width > 0) {
+      orbit.cx = coreRect.left - stageRect.left + coreRect.width / 2;
+      orbit.cy = coreRect.top - stageRect.top + coreRect.height / 2;
+      heart = coreRect.width / 2;
+    } else {
+      orbit.cx = width / 2;
+      orbit.cy = height * .47;
+    }
+    // La couronne passe juste au ras du logement : les notes restent collées à JARVIS
+    // et leurs libellés restent dans la scène, donc lisibles.
+    orbit.inner = heart + Math.max(18, base * .035);
+    orbit.depth = base * .062;
   }
 
   function makePosition(index, total) {
@@ -162,22 +184,24 @@
     const y2 = position.y * cosX - z1 * sinX;
     const z2 = position.y * sinX + z1 * cosX;
     const factor = 1 / (1.62 - z2 * .43);
-    const base = Math.min(width, height);
     const viewScale = Math.min(1.08, Math.max(1, zoom));
-    const worldRadius = base * .48 * viewScale * factor;
+    // Rayon de couronne : juste au-delà du cœur, avec une faible variation de profondeur
+    // (0,49 → 0,84 est la plage réelle du facteur de perspective).
+    const depth = Math.max(0, Math.min(1, (factor - .49) / .35));
+    const worldRadius = (orbit.inner + depth * orbit.depth) * viewScale;
     let offsetX = x1 * worldRadius;
     let offsetY = y2 * worldRadius;
     const distance = Math.hypot(offsetX, offsetY);
-    // Maintient les notes en orbite autour de l’hologramme central, sans recouvrir le visage.
-    const orbitRadius = base * .42 * viewScale;
+    // Garde-fou : aucune note ne doit passer devant le logement de JARVIS.
+    const orbitRadius = orbit.inner * viewScale;
     if (distance < orbitRadius) {
       const angle = distance > .001 ? Math.atan2(offsetY, offsetX) : Math.atan2(position.y, position.x) + rotationY;
       offsetX = Math.cos(angle) * orbitRadius;
       offsetY = Math.sin(angle) * orbitRadius;
     }
     return {
-      x: width / 2 + offsetX,
-      y: height / 2 + offsetY,
+      x: orbit.cx + offsetX,
+      y: orbit.cy + offsetY,
       z: z2,
       factor,
       radius: worldRadius,
@@ -200,9 +224,9 @@
       const twinkle = .65 + .35 * Math.sin(time * .8 + star.phase);
       const starX = star.x * width;
       const starY = star.y * height;
-      const fromCenter = Math.hypot(starX - width / 2, starY - height / 2);
-      const avatarClear = Math.min(width, height) * .31;
-      const fade = Math.max(.08, Math.min(1, (fromCenter - avatarClear) / (Math.min(width, height) * .13)));
+      const fromCenter = Math.hypot(starX - orbit.cx, starY - orbit.cy);
+      const avatarClear = orbit.inner * .82;
+      const fade = Math.max(.08, Math.min(1, (fromCenter - avatarClear) / (Math.min(width, height) * .1)));
       context.globalAlpha = star.alpha * twinkle * fade;
       context.fillStyle = "#d9f5fb";
       context.beginPath();
@@ -211,7 +235,7 @@
     }
     context.globalAlpha = 1;
 
-    const centerGlow = context.createRadialGradient(width / 2, height / 2, 4, width / 2, height / 2, Math.min(width, height) * .43);
+    const centerGlow = context.createRadialGradient(orbit.cx, orbit.cy, 4, orbit.cx, orbit.cy, Math.min(width, height) * .43);
     centerGlow.addColorStop(0, "rgba(55, 143, 160, .045)");
     centerGlow.addColorStop(.5, "rgba(31, 73, 91, .02)");
     centerGlow.addColorStop(1, "rgba(9, 17, 27, 0)");
@@ -248,8 +272,8 @@
       const inGroup = activeGroup === null || byId.get(source)?.group === activeGroup && byId.get(target)?.group === activeGroup;
       const inSearch = !searchTerm || normalize(byId.get(source)?.label + " " + byId.get(source)?.excerpt).includes(searchTerm) || normalize(byId.get(target)?.label + " " + byId.get(target)?.excerpt).includes(searchTerm);
       if (activeGroup !== null && !inGroup) continue;
-      const centerX = width / 2;
-      const centerY = height / 2;
+      const centerX = orbit.cx;
+      const centerY = orbit.cy;
       const startAngle = Math.atan2(a.y - centerY, a.x - centerX);
       const endAngle = Math.atan2(b.y - centerY, b.x - centerX);
       let angleDelta = endAngle - startAngle;
@@ -317,22 +341,34 @@
       const shouldLabel = isSelected || isHovered || textIds.has(node.id);
       if (shouldLabel && !dimmed) {
         context.save();
-        const radialX = point.x - width / 2;
-        const radialY = point.y - height / 2;
+        const radialX = point.x - orbit.cx;
+        const radialY = point.y - orbit.cy;
         const radialLength = Math.hypot(radialX, radialY) || 1;
         const outwardX = radialX / radialLength;
         const outwardY = radialY / radialLength;
-        context.globalAlpha = isSelected || isHovered ? .98 : .88;
-        context.font = `${isSelected ? 9 : 8}px ui-monospace, SFMono-Regular, Menlo, monospace`;
+        context.globalAlpha = isSelected || isHovered ? 1 : .94;
+        // Libellés lisibles : plus grands qu'avant, cernés de sombre pour se détacher
+        // du décor, et maintenus à l'intérieur de la scène.
+        context.font = `${isSelected || isHovered ? 11 : 10}px ui-monospace, SFMono-Regular, Menlo, monospace`;
         context.textAlign = outwardX > .25 ? "left" : outwardX < -.25 ? "right" : "center";
         context.textBaseline = "middle";
         context.shadowColor = "rgba(0, 0, 0, .98)";
-        context.shadowBlur = 6;
-        context.fillStyle = isSelected ? "#f3ffff" : "#d0edf3";
-        const label = node.label.length > 22 ? `${node.label.slice(0, 20)}…` : node.label;
-        const labelX = point.x + outwardX * (radius + 6);
-        const labelY = point.y + outwardY * (radius + 6);
-        context.fillText(label, labelX, labelY, 126);
+        context.shadowBlur = 7;
+        context.fillStyle = isSelected ? "#f6ffff" : isHovered ? "#e8fbff" : "#dcf3f8";
+        const label = node.label.length > 26 ? `${node.label.slice(0, 24)}…` : node.label;
+        const maxWidth = Math.min(180, Math.max(120, width * .3));
+        const textWidth = Math.min(context.measureText(label).width, maxWidth);
+        let labelX = point.x + outwardX * (radius + 7);
+        let labelY = point.y + outwardY * (radius + 7);
+        const half = context.textAlign === "center" ? textWidth / 2 : 0;
+        const leftBound = context.textAlign === "right" ? textWidth : half;
+        const rightBound = context.textAlign === "left" ? textWidth : half;
+        labelX = Math.max(8 + leftBound, Math.min(width - 8 - rightBound, labelX));
+        labelY = Math.max(14, Math.min(height - 12, labelY));
+        context.lineWidth = 3;
+        context.strokeStyle = "rgba(2, 10, 16, .82)";
+        context.strokeText(label, labelX, labelY, maxWidth);
+        context.fillText(label, labelX, labelY, maxWidth);
         context.restore();
       }
     }
