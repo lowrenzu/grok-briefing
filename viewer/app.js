@@ -56,7 +56,9 @@
   // Couronne de notes : son rayon se déduit du cœur mesuré à l'écran, pour que les
   // notes restent juste autour de JARVIS au lieu de partir vers les bords de la scène.
   const orbit = { cx: 0, cy: 0, rx: 0, ry: 0, inner: 0 };
-  const positions = new Map();
+  // Niveau de lecture : « main » = notes principales, « detail » = notes spécifiques.
+  let level = "main";
+  let focusId = null;
   const pulseTimes = new Map();
 
   const palette = ["#75e3df", "#83aaff", "#ce98f4", "#e9b97a", "#ef8cac", "#83d2a1", "#70b8d5", "#d5d979"];
@@ -127,23 +129,6 @@
     orbit.ry = Math.max(heart + 26, Math.min(heart + base * .1, height / 2 - 34));
   }
 
-  function makePosition(index, total) {
-    // Deuxième cercle : toutes les notes sont réparties régulièrement sur un même
-    // anneau (aucune dispersion en profondeur), autour du cœur de JARVIS.
-    const angle = (index / Math.max(total, 1)) * Math.PI * 2 - Math.PI / 2;
-    return { x: Math.cos(angle), y: Math.sin(angle), z: 0 };
-  }
-
-  function ensurePositions() {
-    // Toutes les notes, sans exception, occupent une place sur le deuxième cercle :
-    // les anciens décalages « autour du parent » sont supprimés, sinon certaines notes
-    // sortaient de l'anneau et flottaient entre le cœur et les bords.
-    const count = graph.nodes.length;
-    graph.nodes.forEach((node, index) => {
-      if (!positions.has(node.id)) positions.set(node.id, makePosition(index, count));
-    });
-  }
-
   function neighborsOf(id) {
     const result = new Set();
     for (const link of graph.links) {
@@ -155,11 +140,9 @@
     return result;
   }
 
-  function projectPoint(position) {
+  function orbitPoint(index, total) {
     const viewScale = Math.min(1.08, Math.max(1, zoom));
-    // Toutes les notes sont sur le même deuxième cercle : un seul rayon par axe, donc
-    // aucune note ne s'échappe entre le cœur et les bords.
-    const angle = Math.atan2(position.y, position.x) + rotationY;
+    const angle = (index / Math.max(total, 1)) * Math.PI * 2 - Math.PI / 2 + rotationY;
     // Inclinaison : glisser verticalement redresse ou aplatit l'orbite.
     const tilt = .62 + .38 * Math.abs(Math.cos(rotationX));
     const offsetX = Math.cos(angle) * orbit.rx * viewScale;
@@ -172,6 +155,27 @@
       factor: .74 + depth * .38,
       radius: Math.hypot(offsetX, offsetY),
     };
+  }
+
+  // Deux niveaux de lecture : les notes principales autour de JARVIS, puis les notes
+  // spécifiques d'une note principale dès qu'on clique dessus.
+  function mainNotes() {
+    const ranked = [...graph.nodes].sort((a, b) => (b.connections || 0) - (a.connections || 0));
+    return ranked.slice(0, Math.min(8, ranked.length));
+  }
+
+  function visibleNodes() {
+    if (searchTerm) {
+      const matches = graph.nodes.filter((node) => normalize(`${node.label} ${node.excerpt}`).includes(searchTerm));
+      if (matches.length) return matches;
+    }
+    if (graphOverview) return [...graph.nodes];
+    if (level === "detail" && focusId !== null) {
+      const hub = graph.nodes.find((node) => node.id === focusId);
+      const related = graph.nodes.filter((node) => node.id !== focusId && neighborsOf(focusId).has(node.id));
+      return hub ? [hub, ...related] : [...graph.nodes];
+    }
+    return mainNotes();
   }
 
   function linkIds(link) {
@@ -209,16 +213,21 @@
     context.fillRect(0, 0, width, height);
 
     const byId = new Map(graph.nodes.map((node) => [node.id, node]));
-    const projected = new Map(graph.nodes.map((node) => [node.id, projectPoint(positions.get(node.id) || { x: 0, y: 0, z: 0 })]));
+    const displayed = visibleNodes();
+    const projected = new Map();
+    displayed.forEach((node, index) => projected.set(node.id, orbitPoint(index, displayed.length)));
+    const displayedIds = new Set(displayed.map((node) => node.id));
     const activeIds = new Set(focusedIds);
     if (selectedId !== null) {
       activeIds.add(selectedId);
       for (const id of neighborsOf(selectedId)) activeIds.add(id);
     }
     if (clusterIds.length) clusterIds.forEach((id) => activeIds.add(id));
-    const showGraph = graphOverview || selectedId !== null || focusedIds.size > 0 || labelIds.size > 0 || activeGroup !== null;
-    stage.classList.toggle("showing-graph", showGraph);
-    if (!showGraph) {
+    // Les notes restent visibles en permanence : les principales, ou celles d'une note
+    // ouverte. Les boutons de la scène s'effacent seulement pendant la lecture d'une source.
+    // Les orbes de catégories restent visibles : elles encadrent les notes sans les
+    // recouvrir, et servent de raccourci pendant la lecture d'une source.
+    if (!displayed.length) {
       projectedNodes = [];
       return;
     }
@@ -227,6 +236,7 @@
     const focusEdgeLimit = labelIds.size >= 4 ? 18 : 12;
     for (const link of graph.links) {
       const { source, target } = linkIds(link);
+      if (!displayedIds.has(source) || !displayedIds.has(target)) continue;
       const relevantEdge = labelIds.has(source) || labelIds.has(target) || source === hoveredId || target === hoveredId;
       if (!graphOverview && activeGroup === null && !relevantEdge) continue;
       if (!graphOverview && activeGroup === null && drawnFocusEdges >= focusEdgeLimit) continue;
@@ -256,11 +266,9 @@
     }
     context.globalAlpha = 1;
 
-    const ordered = graph.nodes.filter((node) => {
-      const matchSearch = !searchTerm || normalize(`${node.label} ${node.excerpt}`).includes(searchTerm);
-      const matchGroup = activeGroup === null || node.group === activeGroup;
-      return matchGroup && (graphOverview || activeIds.has(node.id) || node.id === hoveredId || Boolean(searchTerm) && matchSearch || activeGroup !== null);
-    }).map((node) => ({ node, point: projected.get(node.id) })).sort((a, b) => a.point.z - b.point.z);
+    const ordered = displayed.map((node) => ({ node, point: projected.get(node.id) }))
+      .filter((item) => item.point)
+      .sort((a, b) => a.point.z - b.point.z);
     projectedNodes = ordered;
     for (const { node, point } of ordered) {
       const isSelected = selectedId === node.id;
@@ -270,8 +278,13 @@
       const matchSearch = !searchTerm || normalize(`${node.label} ${node.excerpt}`).includes(searchTerm);
       const matchGroup = activeGroup === null || node.group === activeGroup;
       const dimmed = !matchSearch || !matchGroup;
+      // Niveau principal : les notes sont peu nombreuses, elles prennent donc plus de
+      // place et portent toutes leur nom. Le niveau détail reste plus discret.
+      const isFocusNode = level === "detail" && node.id === focusId;
+      const isMainLevel = level === "main" && !searchTerm && !graphOverview;
+      const levelScale = isFocusNode ? 2.2 : isMainLevel ? 2.1 : level === "detail" ? 1.35 : 1;
       const base = Math.max(2.4, Math.min(5.8, 3 + (node.connections || 0) * .28));
-      const radius = base * (.72 + point.factor * .38) * (isSelected ? 1.55 : isHovered ? 1.35 : 1);
+      const radius = base * levelScale * (.72 + point.factor * .38) * (isSelected ? 1.4 : isHovered ? 1.25 : 1);
       const color = colorForGroup(node.group || "notes");
       const pulseStart = pulseTimes.get(node.id);
       const age = pulseStart ? (performance.now() - pulseStart) / 1000 : 9;
@@ -287,7 +300,13 @@
       }
 
       context.save();
-      const nodeOpacity = isSelected || isHovered ? .96 : isSourceNode ? .88 : isFocused ? .16 : graphOverview ? .11 : searchTerm && matchSearch ? .7 : activeGroup !== null ? .28 : .12;
+      const nodeOpacity = isSelected || isHovered ? .96
+        : isFocusNode ? .96
+        : isMainLevel || level === "detail" ? .86
+        : isSourceNode ? .8
+        : graphOverview ? .5
+        : searchTerm && matchSearch ? .7
+        : activeGroup !== null ? .28 : .12;
       context.globalAlpha = dimmed ? .045 : nodeOpacity;
       context.shadowColor = color;
       context.shadowBlur = isFocused || isSelected || isHovered ? 20 : 10;
@@ -304,7 +323,11 @@
       context.stroke();
       context.restore();
 
-      const shouldLabel = isSelected || isHovered || textIds.has(node.id);
+      // Au premier niveau, chaque note principale est nommée. Au second, toutes les
+      // notes spécifiques le sont tant qu'elles restent peu nombreuses.
+      const shouldLabel = isSelected || isHovered || textIds.has(node.id) || isFocusNode
+        || isMainLevel
+        || (level === "detail" && (ordered.length <= 14 || point.z > .15));
       if (shouldLabel && !dimmed) {
         context.save();
         const radialX = point.x - orbit.cx;
@@ -384,25 +407,31 @@
     return nearest;
   }
 
-  function cameraTo(id, extraZoom = 1.22) {
-    const point = positions.get(id);
-    if (!point) return;
-    // L'anneau ne se « retourne » plus : on le fait simplement tourner pour placer la
-    // note choisie en bas de l'orbite, là où rien ne la masque.
-    targetRotation = { x: rotationX, y: Math.PI / 2 - Math.atan2(point.y, point.x), zoom: extraZoom };
+  function angleOfIndex(index, total) {
+    return (index / Math.max(total, 1)) * Math.PI * 2 - Math.PI / 2;
+  }
+
+  function cameraTo(id, extraZoom = 1.14) {
+    const list = visibleNodes();
+    const index = list.findIndex((node) => node.id === id);
+    if (index < 0) return;
+    // L'anneau ne se « retourne » plus : on le fait tourner pour placer la note choisie
+    // en bas de l'orbite, là où rien ne la masque.
+    targetRotation = { x: rotationX, y: Math.PI / 2 - angleOfIndex(index, list.length), zoom: extraZoom };
   }
 
   function cameraToCluster(ids) {
-    const points = ids.map((id) => positions.get(id)).filter(Boolean);
-    if (!points.length) return;
-    // Moyenne angulaire (les angles ne s'additionnent pas comme des vecteurs).
+    const list = visibleNodes();
+    const indexes = ids.map((id) => list.findIndex((node) => node.id === id)).filter((index) => index >= 0);
+    if (!indexes.length) return;
     let sumX = 0;
     let sumY = 0;
-    for (const point of points) {
-      sumX += Math.cos(Math.atan2(point.y, point.x));
-      sumY += Math.sin(Math.atan2(point.y, point.x));
+    for (const index of indexes) {
+      const angle = angleOfIndex(index, list.length);
+      sumX += Math.cos(angle);
+      sumY += Math.sin(angle);
     }
-    targetRotation = { x: rotationX, y: Math.PI / 2 - Math.atan2(sumY, sumX), zoom: points.length > 7 ? 1.04 : 1.12 };
+    targetRotation = { x: rotationX, y: Math.PI / 2 - Math.atan2(sumY, sumX), zoom: indexes.length > 7 ? 1.04 : 1.08 };
   }
 
   function appendElement(parent, tag, className, text) {
@@ -456,9 +485,58 @@
     }
   }
 
+  // Ouvre le second niveau : les notes spécifiques liées à une note principale.
+  function openDetail(id) {
+    const node = graph.nodes.find((item) => item.id === id);
+    if (!node) return;
+    level = "detail";
+    focusId = id;
+    selectedId = id;
+    graphOverview = false;
+    clusterIds = [];
+    labelIds = new Set([id]);
+    textIds = new Set([id]);
+    focusedIds = new Set([id, ...neighborsOf(id)]);
+    syncGraphToggle();
+    renderSourcePanel(node, []);
+    const count = Math.max(0, visibleNodes().length - 1);
+    updateStageHint(`NOTES SPÉCIFIQUES DE « ${node.label.toUpperCase()} » · ${count} NOTE${count > 1 ? "S" : ""} · CLIQUEZ SUR L’UNE D’ELLES`);
+    graphStatus.textContent = `${node.label} · ${count} note${count > 1 ? "s" : ""} liée${count > 1 ? "s" : ""}`;
+    draw();
+  }
+
+  function backToMain() {
+    level = "main";
+    focusId = null;
+    selectedId = null;
+    graphOverview = false;
+    clusterIds = [];
+    focusedIds.clear();
+    labelIds.clear();
+    textIds.clear();
+    syncGraphToggle();
+    sourceContent.hidden = true;
+    sourceEmpty.hidden = false;
+    $("#sectorLabel").textContent = "TOUTES LES NOTES";
+    document.querySelectorAll(".category-node").forEach((node) => node.classList.remove("active"));
+    updateStageHint("NOTES PRINCIPALES · CLIQUEZ SUR UNE NOTE POUR VOIR SES NOTES SPÉCIFIQUES");
+    graphStatus.textContent = "Index local prêt";
+    draw();
+  }
+
   function selectNode(id, options = {}) {
     const node = graph.nodes.find((item) => item.id === id);
     if (!node) return;
+    // Premier niveau : un clic ouvre les notes spécifiques. Second niveau : un clic sur
+    // la note principale refermée ramène à la vue d'ensemble.
+    if (level === "main" && !searchTerm && !graphOverview) {
+      openDetail(id);
+      return;
+    }
+    if (level === "detail" && id === focusId) {
+      backToMain();
+      return;
+    }
     selectedId = id;
     graphOverview = false;
     labelIds = new Set([id]);
@@ -478,6 +556,9 @@
     if (!valid.length) return;
     const first = graph.nodes.find((node) => node.id === valid[0]);
     clusterIds = valid.length >= 4 ? valid : [];
+    // Une réponse de JARVIS ouvre directement le second niveau sur la note citée.
+    level = "detail";
+    focusId = first.id;
     selectedId = first.id;
     graphOverview = false;
     labelIds = new Set(valid);
@@ -507,6 +588,8 @@
   function toggleGraphOverview() {
     graphOverview = !graphOverview;
     if (graphOverview) {
+      level = "main";
+      focusId = null;
       selectedId = null;
       focusedIds.clear();
       labelIds.clear();
@@ -520,7 +603,7 @@
       labelIds.clear();
       textIds.clear();
       clusterIds = [];
-      updateStageHint("JARVIS AU CENTRE · CHOISISSEZ UN UNIVERS OU POSEZ UNE QUESTION");
+      updateStageHint("NOTES PRINCIPALES · CLIQUEZ SUR UNE NOTE POUR VOIR SES NOTES SPÉCIFIQUES");
       graphStatus.textContent = "Réseau des notes masqué";
     }
     syncGraphToggle();
@@ -552,7 +635,6 @@
     if (!nextGraph || !Array.isArray(nextGraph.nodes) || !Array.isArray(nextGraph.links)) return;
     const oldIds = new Set(graph.nodes.map((node) => node.id));
     graph = nextGraph;
-    ensurePositions(options.parentIndex);
     for (const node of graph.nodes) {
       if (!oldIds.has(node.id) && node.id === options.nodeIndex) pulseTimes.set(node.id, performance.now());
     }
@@ -1137,13 +1219,15 @@
     searchTerm = "";
     $("#searchInput").value = "";
     activeGroup = null;
+    level = "main";
+    focusId = null;
     syncGraphToggle();
     $("#sectorLabel").textContent = "TOUTES LES NOTES";
     document.querySelectorAll(".category-node").forEach((node) => node.classList.remove("active"));
     sourceContent.hidden = true;
     sourceEmpty.hidden = false;
     renderLegend();
-    updateStageHint("JARVIS AU CENTRE · CHOISISSEZ UN UNIVERS OU POSEZ UNE QUESTION");
+    updateStageHint("NOTES PRINCIPALES · CLIQUEZ SUR UNE NOTE POUR VOIR SES NOTES SPÉCIFIQUES");
     draw();
   }
 
@@ -1243,7 +1327,10 @@
         event.preventDefault();
         $("#searchInput").focus();
       }
-      if (event.key === "Escape") closeHelp();
+      if (event.key === "Escape") {
+        if (helpDialog && helpDialog.open) closeHelp();
+        else if (level === "detail") backToMain();
+      }
     });
   }
 
@@ -1259,7 +1346,6 @@
     // L'index numérique des nœuds est un contrat utilisé par le serveur et l'interface.
     graph.nodes.forEach((node, index) => { node.id = index; });
   }
-  ensurePositions();
   updateGraph(graph);
   createStars();
   wireEvents();
