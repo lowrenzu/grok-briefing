@@ -6,6 +6,8 @@ Trois façons de le mettre en ligne, de la plus simple à la plus « serveur ».
 
 ---
 
+> **Version pas à pas, sans jargon** : `INSTALLER-SUR-OVH.md` (peut être transmise telle quelle à quelqu'un qui gère le serveur).
+
 ## ⚡ Installation automatique (une commande)
 
 Sur un VPS Debian/Ubuntu neuf, placez le dossier JARVIS sur la machine puis :
