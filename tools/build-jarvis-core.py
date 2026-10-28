@@ -24,7 +24,7 @@ import argparse
 from pathlib import Path
 
 import numpy as np
-from PIL import Image, ImageFilter
+from PIL import Image, ImageDraw, ImageFilter
 
 ROOT = Path(__file__).resolve().parent.parent
 ASSETS = ROOT / "viewer" / "assets"
@@ -94,6 +94,28 @@ def save(rgb: np.ndarray, alpha: np.ndarray, name: str) -> None:
     print(f"{name:26s} {destination.stat().st_size:>8,} octets  bbox {image.getchannel('A').getbbox()}")
 
 
+def solidify(alpha: np.ndarray, rgb: np.ndarray, fill_colour: str,
+             floor: float = 1.0) -> tuple[np.ndarray, np.ndarray]:
+    """Transforme un détourage en pastille pleine : seul l'extérieur reste transparent.
+
+    Le fond est éliminé par un masque circulaire propre (le bruit du détourage ne laisse
+    donc aucune tache), et tout l'intérieur — y compris le trou central de l'anneau —
+    reçoit la matière de la pièce. `fill_colour` sert à combler ce trou.
+    """
+    height, width = alpha.shape
+    yy, xx = np.mgrid[0:height, 0:width]
+    cx, cy = (width - 1) / 2, (height - 1) / 2
+    distance = np.sqrt((xx - cx) ** 2 + (yy - cy) ** 2)
+    outer = min(width, height) / 2 * 0.995
+    circle = 1.0 - smooth(distance / outer, 0.985, 1.0)
+    # Le contour extérieur garde un léger flou pour ne pas créneler sur le décor.
+    shaped = np.maximum(feather(alpha, 0.8), circle * floor)
+    shaped = np.minimum(shaped, circle)
+    low = np.array([int(fill_colour[i:i + 2], 16) / 255 for i in (1, 3, 5)], dtype=np.float32)
+    filled_rgb = np.where((alpha < 0.35)[:, :, None], low, rgb)
+    return np.clip(filled_rgb, 0, 1), np.clip(shaped, 0, 1)
+
+
 def steel(rgb: np.ndarray, dark: str, light: str) -> np.ndarray:
     """Acier bleuté : l'éclat d'origine module un dégradé sombre → clair contrôlé."""
     low = np.array([int(dark[i:i + 2], 16) / 255 for i in (1, 3, 5)], dtype=np.float32)
@@ -121,8 +143,9 @@ def build_crown() -> None:
     cx, cy, radius = measure(lum > 0.05)
     cut_rgb, cut_alpha, cut_lum = crop_circle(rgb, body, cx, cy, radius * 1.01, companion=lum)
     # Métal sombre : la masse reste presque noire, seules les arêtes chromées s'allument.
-    colour = steel(cut_rgb, "#0d141c", "#f2fbff") ** 1.45 * 0.92
-    save(*to_square(np.clip(colour, 0, 1), feather(cut_alpha, 0.8), EXPORT), "jarvis-core-ring.png")
+    colour = np.clip(steel(cut_rgb, "#0d141c", "#f2fbff") ** 1.45 * 0.92, 0, 1)
+    colour, cut_alpha = solidify(cut_alpha, colour, "#070d13")
+    save(*to_square(colour, cut_alpha, EXPORT), "jarvis-core-ring.png")
 
 
 def build_veil() -> None:
@@ -145,7 +168,8 @@ def build_veil() -> None:
     )
     cut_alpha = cut_alpha * np.clip(cut_lum * 3.4 - 0.12, 0, 1)
     colour = np.clip(steel(cut_rgb, "#0f1d27", "#dceff9") ** 1.35 * 1.05, 0, 1)
-    save(*to_square(colour, feather(cut_alpha, 1.0), EXPORT), "jarvis-core-veil.png")
+    colour, cut_alpha = solidify(feather(cut_alpha, 1.0), colour, "#0a141d")
+    save(*to_square(colour, cut_alpha, EXPORT), "jarvis-core-veil.png")
 
 
 def build_disc() -> None:
@@ -156,32 +180,38 @@ def build_disc() -> None:
     mask = despeckle(smooth(lum, 0.04, 0.18) * np.maximum(smooth(sat, 0.02, 0.10), 0.55), 7)
     cx, cy, radius = measure(mask, threshold=0.30)
     cut_rgb, cut_alpha, _ = crop_circle(rgb, mask, cx, cy, radius * 1.0)
-    save(*to_square(np.clip(cut_rgb * 1.05, 0, 1), feather(cut_alpha, 1.0), EXPORT), "jarvis-core-disc.png")
+    colour, cut_alpha = solidify(feather(cut_alpha, 1.0), np.clip(cut_rgb * 1.05, 0, 1), "#04121c")
+    save(*to_square(colour, cut_alpha, EXPORT), "jarvis-core-disc.png")
 
 
 def build_light() -> None:
-    """Orbe lumineuse : noyau blanc, couronne de rayons cyan, sans le cerclage métallique.
+    """Orbe lumineuse : disque plein, net, dont les rayons suivent la source.
 
-    La source empile un arc d'acier et l'orbe. L'acier est gris (saturation faible) :
-    on ne conserve donc que le signal cyan, complété par le noyau blanc central.
+    La source empile un arc d'acier et l'orbe. On repère le centre de l'orbe (cyan
+    saturé), puis on reconstruit un disque parfaitement circulaire : la texture de la
+    source module la couleur, la teinte de comblement occupe les zones sombres.
     """
     rgb = load("orb-glow.jpg")
     lum = rgb.max(axis=2)
     sat = rgb.max(axis=2) - rgb.min(axis=2)
-    cyan = smooth(sat, 0.05, 0.28) * smooth(lum, 0.03, 0.25)
     ys, xs = np.where((sat > 0.25) & (lum > 0.35))
     if not len(xs):
         raise SystemExit("Orbe centrale introuvable dans orb-glow.jpg")
     cx, cy = float(xs.mean()), float(ys.mean())
-    yy, xx = np.mgrid[0:rgb.shape[0], 0:rgb.shape[1]]
-    distance = np.sqrt((xx - cx) ** 2 + (yy - cy) ** 2)
-    disc = 1.0 - smooth(distance, 92.0, 122.0)
-    kernel = 1.0 - smooth(distance, 26.0, 40.0)
-    alpha = np.maximum(cyan * disc, kernel * 0.95)
-    alpha = feather(alpha, 1.6)
-    cut_rgb, cut_alpha, _ = crop_circle(rgb, alpha, cx, cy, 126.0)
-    colour = steel(cut_rgb, "#43b6e6", "#ffffff")
-    save(*to_square(np.clip(colour, 0, 1), feather(cut_alpha, 1.2), EXPORT), "jarvis-core-light.png")
+    radius = 104.0
+    height, width = lum.shape
+    yy, xx = np.mgrid[0:height, 0:width]
+    distance = np.sqrt((xx - cx) ** 2 + (yy - cy) ** 2) / radius
+    disc = 1.0 - smooth(distance, 0.90, 1.0)
+    texture = np.clip(lum * 1.35, 0, 1) ** 0.9
+    low = np.array([0x08 / 255, 0x2a / 255, 0x3d / 255], dtype=np.float32)
+    high = np.array([0.72, 0.95, 1.0], dtype=np.float32)
+    colour = low + (high - low) * feather(texture, 2.0)[:, :, None]
+    # Éclaircissement central : le noyau de l'orbe reste blanc.
+    core = 1.0 - smooth(distance, 0.10, 0.45)
+    colour = np.clip(colour + core[:, :, None] * np.array([0.55, 0.42, 0.30], dtype=np.float32), 0, 1)
+    cut_rgb, cut_alpha, _ = crop_circle(colour, disc, cx, cy, radius)
+    save(*to_square(cut_rgb, feather(cut_alpha, 1.4), EXPORT), "jarvis-core-light.png")
 
 
 LAYERS = (
