@@ -96,6 +96,46 @@ def read_notes(notes_dir: str | Path) -> list[dict[str, Any]]:
     return notes
 
 
+# Thèmes proposés dans l'interface. Un mot-clé présent dans le titre pèse six fois
+# plus qu'un mot présent dans l'extrait : « Analyse de sorties » reste ainsi une note
+# de pêche, et « Plan d'apprentissage » une note de formation.
+THEMES: tuple[dict[str, Any], ...] = (
+    {"label": "PÊCHE", "keywords": ("peche", "spot", "leurre", "poisson", "sortie", "tactique",
+                                    "lure", "fish", "mouche", "carnassier", "bateau")},
+    {"label": "PROJETS", "keywords": ("projet", "agent", "dashboard", "commande", "objectif",
+                                      "besoin", "architecture", "roadmap", "outil", "connecter")},
+    {"label": "CRÉATIVITÉ", "keywords": ("creativ", "idee", "design", "inspiration", "concept")},
+    {"label": "MÉDIAS", "keywords": ("media", "video", "musique", "livre", "news", "contenu",
+                                     "photo", "podcast")},
+    {"label": "FORMATION", "keywords": ("formation", "apprentissage", "apprendre", "tutoriel",
+                                        "progresser", "veille")},
+    {"label": "ANALYSE", "keywords": ("analyse", "donnee", "decision", "comparer", "statistique",
+                                      "mesure", "indicateur")},
+    {"label": "NATURE", "keywords": ("meteo", "condition", "nature", "environnement", "climat",
+                                     "temperature", "vent", "lac")},
+    {"label": "QUOTIDIEN", "keywords": ("quotidien", "rappel", "tache", "organisation", "securite",
+                                        "privee", "routine")},
+)
+UNCLASSIFIED_THEME = "À CLASSER"
+
+
+def theme_of(note: dict[str, Any]) -> str:
+    """Classe une note dans un thème : le dossier, puis les mots du titre, puis l'extrait."""
+    group = normalize(note.get("group", ""))
+    for theme in THEMES:
+        if normalize(theme["label"]) == group:
+            return theme["label"]
+    title = normalize(note.get("label", ""))
+    excerpt = normalize(note.get("excerpt", ""))
+    best_label, best_score = UNCLASSIFIED_THEME, 0
+    for theme in THEMES:
+        score = 6 * sum(title.count(word) for word in theme["keywords"])
+        score += sum(excerpt.count(word) for word in theme["keywords"])
+        if score > best_score:
+            best_label, best_score = theme["label"], score
+    return best_label
+
+
 def build_links(notes: list[dict[str, Any]]) -> list[dict[str, int]]:
     """Relie les notes qui se citent par titre ou partagent un wikilink."""
     normalized_titles = [normalize(note["label"]) for note in notes]
@@ -127,12 +167,19 @@ def public_graph(notes: list[dict[str, Any]], links: list[dict[str, int]]) -> di
             "id": note["id"],
             "label": note["label"],
             "group": note["group"],
+            "theme": theme_of(note),
             "excerpt": note["excerpt"],
             "connections": degrees[note["id"]],
         }
         for note in notes
     ]
-    return {"nodes": public_nodes, "links": links}
+    counts: dict[str, int] = {}
+    for node in public_nodes:
+        counts[node["theme"]] = counts.get(node["theme"], 0) + 1
+    themes = [{"label": theme["label"], "count": counts.get(theme["label"], 0)} for theme in THEMES]
+    if counts.get(UNCLASSIFIED_THEME):
+        themes.append({"label": UNCLASSIFIED_THEME, "count": counts[UNCLASSIFIED_THEME]})
+    return {"nodes": public_nodes, "links": links, "themes": themes}
 
 
 def write_graph_data(graph: dict[str, Any], output: str | Path | None = None) -> Path:

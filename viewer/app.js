@@ -57,7 +57,8 @@
   // notes restent juste autour de JARVIS au lieu de partir vers les bords de la scène.
   const orbit = { cx: 0, cy: 0, rx: 0, ry: 0, inner: 0 };
   // Niveau de lecture : « main » = notes principales, « detail » = notes spécifiques.
-  let level = "main";
+  let level = "themes";
+  let themeFilter = null;
   let focusId = null;
   const pulseTimes = new Map();
 
@@ -116,17 +117,11 @@
       orbit.cx = width / 2;
       orbit.cy = height * .47;
     }
-    // Deuxième cercle : une orbite autour du logement. Elle est légèrement ovale, car la
-    // place libre n'est pas la même horizontalement (les colonnes de catégories) et
-    // verticalement. Ainsi TOUTES les notes tiennent sur ce seul cercle.
-    const catNode = stage.querySelector(".cat-fishing") || stage.querySelector(".category-node");
-    let freeHalf = width / 2 - 10;
-    if (catNode && catNode.offsetWidth) {
-      freeHalf = Math.max(heart + 18, width / 2 - (catNode.offsetLeft + catNode.offsetWidth) - 8);
-    }
+    // Les thèmes et les notes occupent le même cercle, autour du logement. Plus de
+    // colonnes latérales : le cercle peut donc être presque rond.
     orbit.inner = heart + Math.max(12, base * .028);
-    orbit.rx = Math.max(heart + 18, Math.min(heart + base * .065, freeHalf));
-    orbit.ry = Math.max(heart + 26, Math.min(heart + base * .1, height / 2 - 34));
+    orbit.rx = Math.max(heart + 22, Math.min(heart + base * .12, width / 2 - 34));
+    orbit.ry = Math.max(heart + 26, Math.min(heart + base * .12, height / 2 - 40));
   }
 
   function neighborsOf(id) {
@@ -159,6 +154,44 @@
 
   // Deux niveaux de lecture : les notes principales autour de JARVIS, puis les notes
   // spécifiques d'une note principale dès qu'on clique dessus.
+  const THEME_PROMPTS = {
+    "PÊCHE": "Quelles informations sur la pêche ai-je enregistrées ?",
+    "PROJETS": "Quels sont mes projets et prochaines étapes ?",
+    "CRÉATIVITÉ": "Quelles idées créatives ai-je déjà notées ?",
+    "MÉDIAS": "Quelles idées de contenus ou de médias ai-je notées ?",
+    "FORMATION": "Qu’est-ce que je veux apprendre ou améliorer ?",
+    "ANALYSE": "Quelles analyses ou décisions ai-je consignées ?",
+    "NATURE": "Quelles notes ai-je sur la nature et les sorties ?",
+    "QUOTIDIEN": "Quelles tâches ou rappels ai-je notés ?",
+  };
+
+  // Les thèmes sont le premier cercle : ils se présentent exactement comme les notes.
+  function themeList() {
+    if (Array.isArray(graph.themes) && graph.themes.length) return graph.themes;
+    const counts = new Map();
+    for (const node of graph.nodes) {
+      const label = node.theme || "MES NOTES";
+      counts.set(label, (counts.get(label) || 0) + 1);
+    }
+    return Array.from(counts, ([label, count]) => ({ label, count }));
+  }
+
+  function themeNodes() {
+    return themeList().map((theme) => ({
+      id: `theme:${theme.label}`,
+      label: theme.label,
+      theme: theme.label,
+      count: theme.count,
+      excerpt: `${theme.count} note${theme.count > 1 ? "s" : ""}`,
+      connections: theme.count,
+      isTheme: true,
+    }));
+  }
+
+  function notesOfTheme(label) {
+    return graph.nodes.filter((node) => (node.theme || "MES NOTES") === label);
+  }
+
   function mainNotes() {
     const ranked = [...graph.nodes].sort((a, b) => (b.connections || 0) - (a.connections || 0));
     return ranked.slice(0, Math.min(8, ranked.length));
@@ -175,7 +208,12 @@
       const related = graph.nodes.filter((node) => node.id !== focusId && neighborsOf(focusId).has(node.id));
       return hub ? [hub, ...related] : [...graph.nodes];
     }
-    return mainNotes();
+    if (level === "main") {
+      // Second cercle : toutes les notes du thème choisi.
+      if (themeFilter !== null) return notesOfTheme(themeFilter);
+      return mainNotes();
+    }
+    return [];
   }
 
   function linkIds(link) {
@@ -213,7 +251,8 @@
     context.fillRect(0, 0, width, height);
 
     const byId = new Map(graph.nodes.map((node) => [node.id, node]));
-    const displayed = visibleNodes();
+    const showingThemes = level === "themes" && !searchTerm && !graphOverview;
+    const displayed = showingThemes ? themeNodes() : visibleNodes();
     const projected = new Map();
     displayed.forEach((node, index) => projected.set(node.id, orbitPoint(index, displayed.length)));
     const displayedIds = new Set(displayed.map((node) => node.id));
@@ -229,6 +268,60 @@
     // recouvrir, et servent de raccourci pendant la lecture d'une source.
     if (!displayed.length) {
       projectedNodes = [];
+      return;
+    }
+
+    if (showingThemes) {
+      const themeItems = displayed.map((node, index) => ({ node, point: orbitPoint(index, displayed.length) }))
+        .sort((a, b) => a.point.z - b.point.z);
+      projectedNodes = themeItems;
+      for (const { node, point } of themeItems) {
+        const isHovered = hoveredId === node.id;
+        const empty = !node.count;
+        const radius = 7.4 * (.82 + point.factor * .42) * (isHovered ? 1.28 : 1);
+        context.save();
+        context.globalAlpha = empty ? .34 : isHovered ? 1 : .94;
+        const halo = context.createRadialGradient(point.x, point.y, radius * .4, point.x, point.y, radius * 4.6);
+        halo.addColorStop(0, "rgba(140,242,250,.55)");
+        halo.addColorStop(.45, "rgba(96,216,236,.18)");
+        halo.addColorStop(1, "rgba(96,216,236,0)");
+        context.fillStyle = halo;
+        context.beginPath();
+        context.arc(point.x, point.y, radius * 4.6, 0, Math.PI * 2);
+        context.fill();
+        context.beginPath();
+        context.arc(point.x, point.y, radius, 0, Math.PI * 2);
+        context.fillStyle = "#c9fbfe";
+        context.fill();
+        context.beginPath();
+        context.arc(point.x, point.y, radius * 1.55, 0, Math.PI * 2);
+        context.strokeStyle = "rgba(114,228,239,.5)";
+        context.lineWidth = 1;
+        context.stroke();
+        context.beginPath();
+        context.arc(point.x, point.y, radius * 2.2, 0, Math.PI * 2);
+        context.strokeStyle = "rgba(114,228,239,.18)";
+        context.stroke();
+        // Libellé : le nom du thème, et le nombre de notes dessous.
+        context.textAlign = "center";
+        context.textBaseline = "middle";
+        context.font = `600 ${isHovered ? 12 : 11}px var(--mono, ui-monospace), ui-monospace, monospace`;
+        context.shadowColor = "rgba(0,0,0,.95)";
+        context.shadowBlur = 7;
+        context.lineWidth = 3;
+        context.strokeStyle = "rgba(2,10,16,.85)";
+        context.fillStyle = isHovered ? "#ffffff" : "#e6fbff";
+        const labelY = point.y + radius * 2.2 + 12;
+        context.strokeText(node.label, point.x, labelY, 160);
+        context.fillText(node.label, point.x, labelY, 160);
+        context.font = `9px ui-monospace, monospace`;
+        context.globalAlpha = empty ? .3 : .72;
+        context.fillStyle = "#bfe6ef";
+        const countText = node.count ? `${node.count} note${node.count > 1 ? "s" : ""}` : "aucune note";
+        context.strokeText(countText, point.x, labelY + 14, 120);
+        context.fillText(countText, point.x, labelY + 14, 120);
+        context.restore();
+      }
       return;
     }
 
@@ -485,6 +578,32 @@
     }
   }
 
+  // Second cercle : les notes du thème choisi, présentées comme les thèmes eux-mêmes.
+  function openTheme(label) {
+    level = "main";
+    themeFilter = label;
+    focusId = null;
+    selectedId = null;
+    graphOverview = false;
+    clusterIds = [];
+    const notes = notesOfTheme(label);
+    focusedIds = new Set(notes.map((node) => node.id));
+    labelIds.clear();
+    textIds.clear();
+    syncGraphToggle();
+    sourceContent.hidden = true;
+    sourceEmpty.hidden = false;
+    $("#sectorLabel").textContent = label;
+    updateStageHint(notes.length
+      ? `THÈME ${label} · ${notes.length} NOTE${notes.length > 1 ? "S" : ""} · CLIQUEZ SUR UNE NOTE`
+      : `THÈME ${label} · AUCUNE NOTE POUR L’INSTANT`);
+    graphStatus.textContent = notes.length
+      ? `${label} · ${notes.length} note${notes.length > 1 ? "s" : ""}`
+      : `${label} · aucune note pour l’instant`;
+    renderLegend();
+    draw();
+  }
+
   // Ouvre le second niveau : les notes spécifiques liées à une note principale.
   function openDetail(id) {
     const node = graph.nodes.find((item) => item.id === id);
@@ -506,7 +625,9 @@
   }
 
   function backToMain() {
-    level = "main";
+    // Retour au premier cercle : les thèmes.
+    level = "themes";
+    themeFilter = null;
     focusId = null;
     selectedId = null;
     graphOverview = false;
@@ -517,14 +638,18 @@
     syncGraphToggle();
     sourceContent.hidden = true;
     sourceEmpty.hidden = false;
-    $("#sectorLabel").textContent = "TOUTES LES NOTES";
-    document.querySelectorAll(".category-node").forEach((node) => node.classList.remove("active"));
-    updateStageHint("NOTES PRINCIPALES · CLIQUEZ SUR UNE NOTE POUR VOIR SES NOTES SPÉCIFIQUES");
+    $("#sectorLabel").textContent = "TOUS LES THÈMES";
+    updateStageHint("THÈMES · CLIQUEZ POUR OUVRIR UN THÈME");
     graphStatus.textContent = "Index local prêt";
+    renderLegend();
     draw();
   }
 
   function selectNode(id, options = {}) {
+    if (typeof id === "string" && id.startsWith("theme:")) {
+      openTheme(id.slice(6));
+      return;
+    }
     const node = graph.nodes.find((item) => item.id === id);
     if (!node) return;
     // Premier niveau : un clic ouvre les notes spécifiques. Second niveau : un clic sur
@@ -534,7 +659,9 @@
       return;
     }
     if (level === "detail" && id === focusId) {
-      backToMain();
+      // Refermer une note ramène à son thème, pas directement à l'accueil.
+      if (themeFilter) openTheme(themeFilter);
+      else backToMain();
       return;
     }
     selectedId = id;
@@ -588,7 +715,8 @@
   function toggleGraphOverview() {
     graphOverview = !graphOverview;
     if (graphOverview) {
-      level = "main";
+      level = "themes";
+      themeFilter = null;
       focusId = null;
       selectedId = null;
       focusedIds.clear();
@@ -611,22 +739,24 @@
   }
 
   function renderLegend() {
+    // La légende reprend les thèmes : un clic ouvre directement le cercle du thème.
     const legend = $("#legend");
     legend.replaceChildren();
-    const groups = Array.from(new Set(graph.nodes.map((node) => node.group || "Mes notes"))).sort((a, b) => a.localeCompare(b, "fr"));
-    for (const group of groups) {
-      const button = appendElement(legend, "button", `legend-chip${activeGroup === group ? " active" : ""}`, group);
+    for (const theme of themeList()) {
+      const active = themeFilter === theme.label;
+      const text = theme.count ? `${theme.label} · ${theme.count}` : theme.label;
+      const button = appendElement(legend, "button", `legend-chip${active ? " active" : ""}`, text);
       button.type = "button";
-      button.setAttribute("aria-pressed", String(activeGroup === group));
+      button.setAttribute("aria-pressed", String(active));
       const dot = document.createElement("i");
-      dot.style.color = colorForGroup(group);
-      dot.style.background = colorForGroup(group);
+      dot.style.color = colorForGroup(theme.label);
+      dot.style.background = colorForGroup(theme.label);
       button.prepend(dot);
       button.addEventListener("click", () => {
-        activeGroup = activeGroup === group ? null : group;
-        $("#sectorLabel").textContent = activeGroup ? activeGroup.toLocaleUpperCase("fr-FR") : "TOUTES LES NOTES";
+        if (!theme.count) return;
+        if (themeFilter === theme.label) backToMain();
+        else openTheme(theme.label);
         renderLegend();
-        draw();
       });
     }
   }
@@ -1219,15 +1349,15 @@
     searchTerm = "";
     $("#searchInput").value = "";
     activeGroup = null;
-    level = "main";
+    level = "themes";
+    themeFilter = null;
     focusId = null;
     syncGraphToggle();
-    $("#sectorLabel").textContent = "TOUTES LES NOTES";
-    document.querySelectorAll(".category-node").forEach((node) => node.classList.remove("active"));
+    $("#sectorLabel").textContent = "TOUS LES THÈMES";
     sourceContent.hidden = true;
     sourceEmpty.hidden = false;
     renderLegend();
-    updateStageHint("NOTES PRINCIPALES · CLIQUEZ SUR UNE NOTE POUR VOIR SES NOTES SPÉCIFIQUES");
+    updateStageHint("THÈMES · CLIQUEZ POUR OUVRIR UN THÈME");
     draw();
   }
 
@@ -1306,14 +1436,6 @@
       syncGraphToggle();
       draw();
     });
-    document.querySelectorAll(".category-node").forEach((button) => {
-      button.addEventListener("click", () => {
-        document.querySelectorAll(".category-node").forEach((node) => node.classList.remove("active"));
-        button.classList.add("active");
-        $("#sectorLabel").textContent = button.dataset.category || "TOUTES LES NOTES";
-        updateStageHint(`UNIVERS ${button.dataset.category || "SÉLECTIONNÉ"} · JARVIS CONSULTE VOTRE MÉMOIRE`);
-      });
-    });
     $("#helpButton").addEventListener("click", openHelp);
     $("#closeHelp").addEventListener("click", closeHelp);
     helpDialog.addEventListener("click", (event) => {
@@ -1328,8 +1450,10 @@
         $("#searchInput").focus();
       }
       if (event.key === "Escape") {
+        // Échap remonte d'un cercle : note → thème → thèmes.
         if (helpDialog && helpDialog.open) closeHelp();
-        else if (level === "detail") backToMain();
+        else if (level === "detail") { if (themeFilter) openTheme(themeFilter); else backToMain(); }
+        else if (level === "main" && !searchTerm) backToMain();
       }
     });
   }
