@@ -17,11 +17,7 @@
   const sourceContent = $("#sourceContent");
   const helpDialog = $("#helpDialog");
   const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  const coreFrame = $("#jarvisCoreFrame");
   const core = $("#jarvisCore");
-  // Géométrie du décor : le cœur doit rester posé au-dessus du projecteur, quelle que
-  // soit la taille de la fenêtre. Ces valeurs sont celles de command-room.jpg.
-  const BACKDROP = { width: 1376, height: 768, coreX: 688, coreY: 332, coreSize: 300 };
 
   let graph = window.JARVIS_GRAPH && Array.isArray(window.JARVIS_GRAPH.nodes)
     ? window.JARVIS_GRAPH
@@ -100,54 +96,6 @@
     canvas.width = Math.round(width * pixelRatio);
     canvas.height = Math.round(height * pixelRatio);
     context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
-  }
-
-  function layoutJarvisCore() {
-    if (!coreFrame || !core) return;
-    // `background-size: cover` : le décor est agrandi du plus grand des deux rapports,
-    // puis centré. On applique la même transformation au cadre du cœur.
-    const scale = Math.max(window.innerWidth / BACKDROP.width, window.innerHeight / BACKDROP.height);
-    coreFrame.style.setProperty("--frame-width", `${BACKDROP.width * scale}px`);
-    coreFrame.style.setProperty("--frame-height", `${BACKDROP.height * scale}px`);
-
-    // Le cœur reste posé sur le projecteur du décor (indispensable pour que le faisceau
-    // reste crédible), mais son diamètre est borné par la place laissée entre les deux
-    // colonnes de catégories : il ne peut donc plus mordre sur un orbe.
-    const frameLeft = (window.innerWidth - BACKDROP.width * scale) / 2;
-    const heartScreenX = frameLeft + BACKDROP.coreX * scale;
-
-    const stageRect = stage ? stage.getBoundingClientRect() : null;
-    const hasStage = Boolean(stageRect && stageRect.width > 0 && stageRect.height > 0);
-    const stageLeft = hasStage ? stageRect.left : 0;
-    const stageWidth = hasStage ? stageRect.width : window.innerWidth;
-    const stageHeight = hasStage ? stageRect.height : window.innerHeight;
-
-    const catNode = stage ? stage.querySelector(".cat-fishing") || stage.querySelector(".category-node") : null;
-    const catWidth = catNode && catNode.offsetWidth ? catNode.offsetWidth : 124;
-    const minInset = 14;   // marge minimale entre une colonne et le bord de la scène
-    const gap = 14;        // respiration entre le cœur et un orbe
-    const leftRoom = heartScreenX - (stageLeft + minInset + catWidth) - gap;
-    const rightRoom = stageLeft + stageWidth - minInset - catWidth - heartScreenX - gap;
-    const horizontalRoom = Math.min(leftRoom, rightRoom) * 2;
-
-    const diameter = Math.max(
-      140,
-      Math.min(BACKDROP.coreSize * scale, horizontalRoom, stageHeight * 0.8, 470),
-    );
-
-    core.style.setProperty("--core-x", `${BACKDROP.coreX}px`);
-    core.style.setProperty("--core-y", `${BACKDROP.coreY}px`);
-    core.style.setProperty("--core-size", `${Math.round(diameter)}px`);
-
-    // Les deux colonnes sont calées symétriquement autour du cœur : même écart de chaque
-    // côté, et jamais sous le cœur ni hors de la scène.
-    if (stage) {
-      const half = diameter / 2;
-      const leftPx = heartScreenX - half - gap - catWidth - stageLeft;
-      const rightPx = stageLeft + stageWidth - (heartScreenX + half + gap + catWidth);
-      stage.style.setProperty("--cat-left-px", `${Math.round(Math.max(minInset, leftPx))}px`);
-      stage.style.setProperty("--cat-right-px", `${Math.round(Math.max(minInset, rightPx))}px`);
-    }
   }
 
   function makePosition(index, total) {
@@ -1316,20 +1264,13 @@
   createStars();
   wireEvents();
   resizeCanvas();
-  layoutJarvisCore();
   updateClock();
   window.setInterval(updateClock, 60_000);
   greet();
   loadStatus();
   loadWeather();
   window.setInterval(loadWeather, 10 * 60 * 1000);
-  if ("ResizeObserver" in window) {
-    const stageObserver = new ResizeObserver(() => { resizeCanvas(); layoutJarvisCore(); });
-    stageObserver.observe(stage);
-  } else {
-    window.addEventListener("resize", resizeCanvas);
-  }
-  window.addEventListener("resize", layoutJarvisCore);
-  window.addEventListener("orientationchange", () => window.setTimeout(layoutJarvisCore, 120));
+  if ("ResizeObserver" in window) new ResizeObserver(resizeCanvas).observe(stage);
+  else window.addEventListener("resize", resizeCanvas);
   window.requestAnimationFrame(frame);
 })();

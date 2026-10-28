@@ -12,16 +12,6 @@
 </head>
 <body>
   <div class="screen-shade" aria-hidden="true"></div>
-  <div class="jarvis-core-frame" id="jarvisCoreFrame" aria-hidden="true">
-    <div class="jarvis-core" id="jarvisCore">
-      <span class="jarvis-core-layer core-ring"><img src="/assets/jarvis-core-ring.png" alt="" decoding="async" fetchpriority="high"></span>
-      <span class="jarvis-core-layer core-veil"><img src="/assets/jarvis-core-veil.png" alt="" decoding="async"></span>
-      <span class="jarvis-core-layer core-disc"><img src="/assets/jarvis-core-disc.png" alt="" decoding="async"></span>
-      <span class="jarvis-core-layer core-light"><img src="/assets/jarvis-core-light.png" alt="" decoding="async"></span>
-      <span class="jarvis-core-beam" aria-hidden="true"></span>
-      <span class="jarvis-core-base" aria-hidden="true"></span>
-    </div>
-  </div>
   <header class="command-topbar">
     <a class="brand" href="/" aria-label="JARVIS, accueil">
       <span class="brand-mark" aria-hidden="true"><span></span><span></span><span></span></span>
@@ -88,6 +78,14 @@
       <div class="hero-stage" id="galaxyStage">
         <canvas id="galaxy" role="img" aria-label="Galaxie interactive de vos notes. Faites glisser pour tourner, cliquez sur une étoile pour ouvrir sa source."></canvas>
         <div class="stage-vignette" aria-hidden="true"></div>
+        <div class="jarvis-core" id="jarvisCore" aria-hidden="true">
+          <span class="jarvis-core-layer core-ring"><img src="/assets/jarvis-core-ring.png" alt="" decoding="async" fetchpriority="high"></span>
+          <span class="jarvis-core-layer core-veil"><img src="/assets/jarvis-core-veil.png" alt="" decoding="async"></span>
+          <span class="jarvis-core-layer core-disc"><img src="/assets/jarvis-core-disc.png" alt="" decoding="async"></span>
+          <span class="jarvis-core-layer core-light"><img src="/assets/jarvis-core-light.png" alt="" decoding="async"></span>
+          <span class="jarvis-core-beam" aria-hidden="true"></span>
+          <span class="jarvis-core-base" aria-hidden="true"></span>
+        </div>
         <div class="stage-hud stage-hud-left"><span class="hud-label">SECTEUR ACTIF</span><b id="sectorLabel">TOUTES LES NOTES</b></div>
         <div class="stage-hud stage-hud-right"><span class="orbit-indicator"></span><span id="stageModeLabel">RÉSEAU LOCAL</span></div>
         <button class="category-node cat-creative" type="button" data-category="CRÉATIVITÉ" data-prompt="Quelles idées créatives ai-je déjà notées ?"><span class="category-orb"><span>◉</span></span><b>CRÉATIVITÉ</b><small>Design · Vidéo · Audio</small></button>
