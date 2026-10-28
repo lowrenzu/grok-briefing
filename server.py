@@ -20,6 +20,7 @@ from typing import Any
 import urllib.parse
 from urllib.parse import urlencode, urlsplit
 
+import access as access_module
 import ai_providers
 import auth as auth_module
 from build import DEFAULT_NOTES_DIR, ROOT, build_links, normalize, public_graph, read_notes, resolve_notes_dir, write_graph_data
@@ -75,7 +76,26 @@ def _auth_from_config() -> auth_module.GoogleAuth:
     )
 
 
+ACCESS_PATH = ROOT / "access.json"
+ACCESS = access_module.AccessList(ACCESS_PATH)
+
+
+def _seed_access() -> None:
+    """Première installation : la liste vient de config.json (`auth.allowed_emails`)."""
+    block = CONFIG.get("auth") if isinstance(CONFIG.get("auth"), dict) else {}
+    emails = os.environ.get("JARVIS_ALLOWED_EMAILS") or str(block.get("allowed_emails") or "")
+    admin = os.environ.get("JARVIS_ADMIN_EMAIL") or str(block.get("admin_email") or "")
+    ACCESS.seed(emails, admin)
+
+
+_seed_access()
 AUTH = _auth_from_config()
+AUTH.allowed = ACCESS.emails  # access.json fait foi, même si l'environnement en fournissait une
+
+
+def sync_access() -> None:
+    """Après un changement d'administration : la porte suit immédiatement."""
+    AUTH.allowed = ACCESS.emails
 NOTES_DIR = resolve_notes_dir(CONFIG.get("notes_dir"))
 
 STATE_LOCK = threading.RLock()
@@ -612,6 +632,7 @@ class JarvisHandler(BaseHTTPRequestHandler):
                 self.send_login_page(str(exc))
                 return True
             token, cookie = AUTH.new_session(identity["email"], identity["name"])
+            ACCESS.note_login(identity["email"])
             cookie += "; Secure" if secure_cookie else ""
             print(f"[JARVIS] Connexion autorisée : {identity['email']}")
             self.redirect("/", cookie)
@@ -641,6 +662,7 @@ class JarvisHandler(BaseHTTPRequestHandler):
                 "name": user["name"] if user else None,
                 "loginUrl": "/auth/login" if AUTH.enabled else None,
                 "logoutUrl": "/auth/logout" if user else None,
+                "isAdmin": ACCESS.is_admin(user.get("email") if user else None),
             })
         if path == "/api/weather":
             try:
@@ -669,6 +691,8 @@ class JarvisHandler(BaseHTTPRequestHandler):
         if path == "/api/graph":
             _notes, graph = current_state()
             return self.send_json(graph)
+        if path == "/api/access":
+            return self.send_json(self.access_view())
         if path == "/api/settings":
             notes, _graph = current_state()
             payload = AI.public()
@@ -734,6 +758,66 @@ class JarvisHandler(BaseHTTPRequestHandler):
         self.send_header("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self'; img-src 'self' data:; font-src 'self'; base-uri 'none'; frame-ancestors " + frame_ancestors)
         self.end_headers()
         self.wfile.write(body)
+
+    def access_view(self) -> dict[str, Any]:
+        """Vue de la liste d'accès : détaillée pour l'administrateur, minimale sinon."""
+        user = current_user(self) or {}
+        viewer = user.get("email")
+        is_admin = ACCESS.is_admin(viewer)
+        payload = ACCESS.public(viewer)
+        if not is_admin:
+            # Un invité ne voit que sa propre fiche : pas d'annuaire des autres comptes.
+            payload["emails"] = [item for item in payload["emails"] if item["isYou"]]
+            payload["admin"] = ""
+        sessions = AUTH.signed_in()
+        for item in payload["emails"]:
+            item["sessions"] = sessions.get(item["email"], 0)
+        payload.update({
+            "viewer": viewer,
+            "canManage": is_admin,
+            "authEnabled": AUTH.enabled,
+            "authRequired": AUTH.ready,
+        })
+        return payload
+
+    def handle_access(self, path: str, body: dict[str, Any]) -> None:
+        """Ajout et retrait d'adresses : réservé à l'administrateur connecté."""
+        user = current_user(self) or {}
+        if not AUTH.ready:
+            self.send_json({"error": "La connexion Google n’est pas active : gérez les accès dans config.json."},
+                           HTTPStatus.CONFLICT)
+            return
+        if not ACCESS.is_admin(user.get("email")):
+            self.send_json({"error": "Seul le compte administrateur peut gérer les accès."}, HTTPStatus.FORBIDDEN)
+            return
+        if self.headers.get("X-Jarvis-Settings") != "1":
+            self.send_json({"error": "Requête refusée : en-tête JARVIS manquant."}, HTTPStatus.FORBIDDEN)
+            return
+        action = str(body.get("action") or "").strip().lower()
+        email = body.get("email")
+        try:
+            if action == "add":
+                added = ACCESS.add(str(email or ""), str(body.get("note") or ""))
+                message = f"{added} peut maintenant se connecter."
+            elif action == "remove":
+                removed = ACCESS.remove(str(email or ""))
+                closed = AUTH.drop_email(removed)
+                message = f"Accès retiré à {removed}" + (f" · {closed} session(s) fermée(s)" if closed else "")
+            else:
+                self.send_json({"error": "Action inconnue."}, HTTPStatus.BAD_REQUEST)
+                return
+        except access_module.AccessError as exc:
+            self.send_json({"error": str(exc)}, HTTPStatus.BAD_REQUEST)
+            return
+        except OSError:
+            self.send_json({"error": "Impossible d’écrire access.json (droits du dossier ?)."},
+                           HTTPStatus.INTERNAL_SERVER_ERROR)
+            return
+        sync_access()
+        print(f"[JARVIS] Accès modifié par {user.get('email')} : {message}")
+        payload = self.access_view()
+        payload.update({"ok": True, "message": message})
+        self.send_json(payload)
 
     def handle_settings(self, path: str, body: dict[str, Any]) -> None:
         """Enregistre les réglages, ou teste la connexion au fournisseur choisi."""
@@ -821,7 +905,7 @@ class JarvisHandler(BaseHTTPRequestHandler):
 
     def do_POST(self) -> None:  # noqa: N802
         path = urlsplit(self.path).path
-        if path not in {"/api/chat", "/api/remember", "/api/settings", "/api/settings/test"}:
+        if path not in {"/api/chat", "/api/remember", "/api/settings", "/api/settings/test", "/api/access"}:
             self.send_json({"error": "Route introuvable."}, HTTPStatus.NOT_FOUND)
             return
         try:
@@ -833,6 +917,9 @@ class JarvisHandler(BaseHTTPRequestHandler):
         if AUTH.ready and current_user(self) is None:
             self.send_json({"error": "Connexion requise.", "authRequired": True}, HTTPStatus.UNAUTHORIZED)
             return
+
+        if path == "/api/access":
+            return self.handle_access(path, body)
 
         if path in {"/api/settings", "/api/settings/test"}:
             return self.handle_settings(path, body)
@@ -886,7 +973,7 @@ def main() -> None:
     print(f"  Notes : {len(graph['nodes'])}  ·  Liens : {len(graph['links'])}")
     print(f"  IA : {AI.spec['label'] + ' · ' + AI.model if AI.configured else 'mode local (sans clé API)'}")
     if AUTH.ready:
-        print(f"  Accès : connexion Google obligatoire ({len(AUTH.allowed)} adresse(s) autorisée(s))")
+        print(f"  Accès : connexion Google obligatoire ({ACCESS.count} adresse(s)) · administrateur {ACCESS.admin or '—'}")
     elif AUTH.enabled:
         print("  Accès : connexion Google configurée mais aucune adresse autorisée — accès refusé.")
     else:

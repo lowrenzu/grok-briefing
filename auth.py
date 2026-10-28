@@ -47,19 +47,33 @@ class GoogleAuth:
     Sans eux, JARVIS reste ouvert comme avant (utile en local, à éviter en ligne).
     """
 
-    def __init__(self, client_id: str = "", client_secret: str = "", allowed: str | list[str] = "",
+    def __init__(self, client_id: str = "", client_secret: str = "", allowed: Any = "",
                  public_url: str = "") -> None:
         self.client_id = (client_id or "").strip()
         self.client_secret = (client_secret or "").strip()
-        if isinstance(allowed, str):
-            allowed = [item.strip() for item in allowed.replace(";", ",").split(",")]
-        self.allowed = {item.strip().casefold() for item in allowed if item and item.strip()}
+        # `allowed` peut être une liste, une chaîne séparée par des virgules, un
+        # ensemble, ou une fonction : la liste d'accès pouvant changer en direct,
+        # on accepte un fournisseur appelé à chaque vérification.
+        self._allowed_source = allowed
+        self.allowed = self._read_allowed(allowed)
         self.public_url = (public_url or "").strip().rstrip("/")
         self._lock = threading.RLock()
         self._sessions: dict[str, dict[str, Any]] = {}
         self._states: dict[str, dict[str, Any]] = {}
 
     # --- configuration ----------------------------------------------------
+    @staticmethod
+    def _read_allowed(source: Any) -> set[str]:
+        if callable(source):
+            source = source()
+        if isinstance(source, str):
+            source = [item.strip() for item in source.replace(";", ",").split(",")]
+        return {str(item).strip().casefold() for item in (source or []) if str(item).strip()}
+
+    def refresh(self) -> None:
+        """Relit la source d'adresses autorisées (listes gérées ailleurs)."""
+        self.allowed = self._read_allowed(self._allowed_source)
+
     @property
     def enabled(self) -> bool:
         return bool(self.client_id and self.client_secret)
@@ -106,6 +120,23 @@ class GoogleAuth:
                 return None
             found["last_seen"] = now
             return dict(found)
+
+    def drop_email(self, email: str) -> int:
+        """Ferme toutes les sessions d'une adresse (retrait d'accès)."""
+        target = str(email or "").casefold()
+        with self._lock:
+            tokens = [key for key, value in self._sessions.items() if value["email"] == target]
+            for key in tokens:
+                self._sessions.pop(key, None)
+        return len(tokens)
+
+    def signed_in(self) -> dict[str, int]:
+        """Nombre de sessions actives par adresse (utilisé par le panneau admin)."""
+        with self._lock:
+            totals: dict[str, int] = {}
+            for value in self._sessions.values():
+                totals[value["email"]] = totals.get(value["email"], 0) + 1
+            return totals
 
     def drop_session(self, token: str | None) -> None:
         if not token:

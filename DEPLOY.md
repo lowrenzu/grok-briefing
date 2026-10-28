@@ -185,6 +185,21 @@ Les mêmes réglages existent en variables d'environnement : `JARVIS_GOOGLE_CLIE
 - Une adresse Google **non vérifiée** est refusée.
 - La session dure 7 jours, avec un cookie `HttpOnly` + `Secure` (en HTTPS) + `SameSite=Lax`.
 - Le bouton **SORTIR** apparaît en haut à droite à côté de votre adresse.
+- L'administrateur gère la liste dans **Réglages → Accès** (voir 3 bis).
+
+### 3 bis. Gérer les comptes autorisés depuis l'interface (administrateur)
+
+Le premier compte de la liste, ou celui indiqué dans `auth.admin_email`, est **administrateur**. En ouvrant **Réglages → Accès**, il voit la liste et peut :
+
+- **ajouter** une adresse (par exemple `anna@gmail.com`, puis `maman@gmail.com`) : l'accès est immédiat, sans redémarrage ;
+- **retirer** une adresse : ses sessions en cours sont fermées dans la seconde ;
+- voir **qui est connecté** et **la dernière connexion** de chaque compte.
+
+La liste vit dans **`access.json`** (droits `600`), créé automatiquement au premier démarrage à partir de `auth.allowed_emails`. Ce fichier ne contient que des adresses, jamais de mot de passe. Les autres comptes, eux, ne voient que leur propre fiche : pas d'annuaire.
+
+Deux garde-fous : le compte administrateur ne peut pas se retirer lui-même, et il reste toujours au moins une adresse (sinon plus personne ne pourrait entrer).
+
+Pour désigner un autre administrateur, modifiez `"admin": "..."` dans `access.json` et redémarrez.
 
 ### 4. Vérifier
 

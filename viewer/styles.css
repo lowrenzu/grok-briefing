@@ -449,6 +449,34 @@ button:hover .chevron { color: var(--cyan); transform: translateX(2px); }
 .settings-save[disabled], .settings-test[disabled], .settings-clear[disabled] { opacity: .5; cursor: progress; }
 .settings-note { margin: 2px 0 0; padding-top: 10px; border-top: 1px solid var(--line); color: #93a7b1; font-size: 10px; line-height: 1.5; }
 
+/* --- Bloc « Accès » : la liste des comptes autorisés (administrateur seulement). */
+.access-block { display: grid; gap: 8px; padding: 11px; border: 1px solid var(--line); border-radius: 10px; background: rgba(255,255,255,.022); }
+.access-block[hidden] { display: none; }
+.access-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.access-head h3 { margin: 4px 0 0; color: #e7f1f5; font-size: 13px; font-weight: 500; }
+.access-count { padding: 3px 8px; border: 1px solid rgba(127,222,237,.24); border-radius: 5px; color: #d2edf1; background: rgba(47,133,158,.14); font: 10px var(--mono); white-space: nowrap; }
+.access-intro { margin: 0; color: #a3b7c1; font-size: 10.5px; line-height: 1.5; }
+.access-list { display: grid; gap: 5px; margin: 0; padding: 0; list-style: none; }
+.access-person { display: flex; align-items: center; gap: 8px; padding: 7px 9px; border: 1px solid rgba(164,208,229,.14); border-radius: 8px; background: rgba(4,13,20,.5); }
+.access-person.is-you { border-color: rgba(126,232,244,.34); background: rgba(37,134,159,.12); }
+.access-person .who { min-width: 0; flex: 1; }
+.access-person .who b { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #eaf7fb; font-size: 11.5px; font-weight: 500; }
+.access-person .who small { display: block; margin-top: 2px; color: #93a8b2; font-size: 9.5px; }
+.access-badge { padding: 2px 6px; border: 1px solid rgba(228,182,118,.4); border-radius: 999px; color: #eccfa4; background: rgba(228,182,118,.1); font: 8.5px var(--mono); letter-spacing: .08em; white-space: nowrap; }
+.access-badge.you { border-color: rgba(126,232,244,.4); color: #bdf4fa; background: rgba(126,232,244,.1); }
+.access-remove { flex: 0 0 auto; width: 26px; height: 26px; border: 1px solid rgba(228,150,140,.28); border-radius: 7px; background: rgba(228,120,110,.07); color: #e7a9a0; font-size: 13px; cursor: pointer; transition: .18s ease; }
+.access-remove:hover { border-color: rgba(228,150,140,.7); color: #ffc4bb; }
+.access-remove[disabled] { opacity: .35; cursor: not-allowed; }
+.access-add { display: flex; gap: 6px; }
+.access-add[hidden] { display: none; }
+.access-add input { flex: 1; min-width: 0; height: 32px; padding: 0 9px; border: 1px solid rgba(164,208,229,.26); border-radius: 7px; background: rgba(4,13,20,.72); color: #eef8fb; font-size: 12px; }
+.access-add input::placeholder { color: #6f8590; }
+.access-add button { flex: 0 0 auto; height: 32px; padding: 0 12px; border: 1px solid rgba(121,230,233,.42); border-radius: 7px; background: linear-gradient(135deg, rgba(62,157,170,.28), rgba(75,201,211,.12)); color: #c6f7fb; font: 9.5px var(--mono); letter-spacing: .08em; cursor: pointer; }
+.access-add button:hover { border-color: rgba(121,230,233,.75); }
+.access-status { min-height: 13px; margin: 0; font-size: 10.5px; line-height: 1.45; }
+.access-status.ok { color: #8fe6cd; }
+.access-status.ko { color: #f0b9a4; }
+.access-note { margin: 0; color: #8fa3ad; font-size: 9.5px; line-height: 1.5; }
 .help-dialog { width: min(460px, calc(100vw - 24px)); max-height: min(88vh, 640px); padding: 21px; border: 1px solid rgba(121,230,233,.28); border-radius: 15px; background: rgba(8,18,27,.96); color: var(--text); box-shadow: 0 25px 100px rgba(0,0,0,.6), 0 0 60px rgba(75,201,211,.09); backdrop-filter: blur(16px); }
 .help-dialog::backdrop { background: rgba(0,4,9,.72); backdrop-filter: blur(5px); }
 .dialog-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 15px; }

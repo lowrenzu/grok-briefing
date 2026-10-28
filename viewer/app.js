@@ -1604,6 +1604,133 @@
     if (clock) clock.textContent = new Intl.DateTimeFormat("fr-FR", { hour: "2-digit", minute: "2-digit" }).format(now);
   }
 
+  // --- Panneau « Accès » (administrateur) ----------------------------------
+  // Google prouve l'identité ; cette liste décide qui entre. Seul le compte
+  // administrateur voit la liste complète et peut l'ajouter ou la retirer.
+  let accessView = null;
+
+  function setAccessStatus(message, kind = "") {
+    const status = $("#accessStatus");
+    if (!status) return;
+    status.textContent = message || "";
+    status.className = `access-status${kind ? " " + kind : ""}`;
+  }
+
+  function relativeLastSeen(timestamp) {
+    if (!timestamp) return "jamais connecté";
+    const seconds = Math.max(0, Date.now() / 1000 - timestamp);
+    if (seconds < 90) return "à l’instant";
+    if (seconds < 3600) return `il y a ${Math.round(seconds / 60)} min`;
+    if (seconds < 86400) return `il y a ${Math.round(seconds / 3600)} h`;
+    const days = Math.round(seconds / 86400);
+    return days <= 1 ? "hier" : `il y a ${days} jours`;
+  }
+
+  function paintAccess(data) {
+    accessView = data;
+    const block = $("#accessBlock");
+    if (!block) return;
+    // Rien à montrer tant que la connexion Google n'est pas active.
+    block.hidden = !data.authRequired && !data.emails.length;
+    const count = $("#accessCount");
+    if (count) count.textContent = `${data.count} / ${data.max}`;
+    const list = $("#accessList");
+    list.replaceChildren();
+    for (const person of data.emails) {
+      const item = document.createElement("li");
+      item.className = `access-person${person.isYou ? " is-you" : ""}`;
+      const who = document.createElement("span");
+      who.className = "who";
+      const name = document.createElement("b");
+      name.textContent = person.email;
+      const meta = document.createElement("small");
+      const bits = [];
+      if (person.isYou) bits.push("vous");
+      bits.push(person.sessions ? `${person.sessions} session${person.sessions > 1 ? "s" : ""}` : "hors ligne");
+      bits.push(relativeLastSeen(person.lastSeen));
+      meta.textContent = bits.join(" · ");
+      who.append(name, meta);
+      item.appendChild(who);
+      if (person.isAdmin) {
+        const badge = document.createElement("span");
+        badge.className = "access-badge";
+        badge.textContent = "ADMIN";
+        item.appendChild(badge);
+      }
+      if (person.isYou) {
+        const badge = document.createElement("span");
+        badge.className = "access-badge you";
+        badge.textContent = "VOUS";
+        item.appendChild(badge);
+      }
+      if (data.canManage) {
+        const remove = document.createElement("button");
+        remove.type = "button";
+        remove.className = "access-remove";
+        remove.textContent = "×";
+        const locked = person.isAdmin;
+        remove.disabled = locked;
+        remove.title = locked ? "Le compte administrateur ne peut pas être retiré" : `Retirer l’accès à ${person.email}`;
+        remove.setAttribute("aria-label", remove.title);
+        remove.addEventListener("click", () => changeAccess("remove", person.email));
+        item.appendChild(remove);
+      }
+      list.appendChild(item);
+    }
+    const addForm = $("#accessAdd");
+    if (addForm) addForm.hidden = !data.canManage;
+    const intro = $("#accessIntro");
+    if (intro) {
+      intro.textContent = data.canManage
+        ? "Ces comptes Google peuvent ouvrir JARVIS. Ajoutez une adresse : elle pourra se connecter dès sa prochaine visite."
+        : "Seuls les comptes de cette liste peuvent ouvrir JARVIS. Elle est gérée par l’administrateur.";
+    }
+    const note = $("#accessNote");
+    if (note) {
+      note.hidden = !data.canManage;
+    }
+    if (!data.authRequired) {
+      setAccessStatus("La connexion Google n’est pas configurée : la liste se règle dans config.json.", "ko");
+    }
+  }
+
+  async function loadAccess() {
+    const block = $("#accessBlock");
+    if (!block) return;
+    try {
+      const response = await fetch("/api/access", { headers: { Accept: "application/json" } });
+      if (!response.ok) {
+        block.hidden = true;
+        return;
+      }
+      paintAccess(await response.json());
+    } catch (_error) {
+      block.hidden = true;
+    }
+  }
+
+  async function changeAccess(action, email) {
+    setAccessStatus(action === "add" ? "Ajout…" : "Retrait…");
+    try {
+      const response = await fetch("/api/access", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Jarvis-Settings": "1" },
+        body: JSON.stringify({ action, email }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || `Le serveur a répondu ${response.status}.`);
+      paintAccess(data);
+      setAccessStatus(data.message || "C’est fait.", "ok");
+      const input = $("#accessEmail");
+      if (input && action === "add") {
+        input.value = "";
+        input.focus();
+      }
+    } catch (error) {
+      setAccessStatus(error.message, "ko");
+    }
+  }
+
   // --- Panneau Réglages -----------------------------------------------------
   // Le navigateur ne reçoit jamais la clé : seulement sa version masquée. Toutes les
   // écritures passent par le serveur, qui la range dans config.json (droits 600).
@@ -1813,6 +1940,7 @@
       const response = await fetch("/api/settings", { headers: { Accept: "application/json" } });
       if (!response.ok) throw new Error(`Le serveur a répondu ${response.status}.`);
       paintSettings(await response.json());
+      await loadAccess();
     } catch (error) {
       setSettingsStatus(`Réglages indisponibles — ${error.message}`, "ko");
     }
@@ -1911,6 +2039,24 @@
     if ($("#settingsClearKey")) $("#settingsClearKey").addEventListener("click", clearKey);
     if ($("#settingsReveal")) $("#settingsReveal").addEventListener("click", toggleReveal);
     if ($("#settingsProvider")) $("#settingsProvider").addEventListener("change", syncProviderFields);
+    // Ajout d'une adresse : bouton + touche Entrée (pas de <form> imbriqué dans le
+    // formulaire des réglages, que le navigateur supprimerait).
+    const accessButton = $("#accessAddButton");
+    if (accessButton) {
+      accessButton.addEventListener("click", () => {
+        const email = $("#accessEmail").value.trim();
+        if (email) changeAccess("add", email);
+      });
+    }
+    const accessEmail = $("#accessEmail");
+    if (accessEmail) {
+      accessEmail.addEventListener("keydown", (event) => {
+        if (event.key !== "Enter") return;
+        event.preventDefault();
+        const email = accessEmail.value.trim();
+        if (email) changeAccess("add", email);
+      });
+    }
     $("#helpButton").addEventListener("click", openHelp);
     $("#closeHelp").addEventListener("click", closeHelp);
     helpDialog.addEventListener("click", (event) => {

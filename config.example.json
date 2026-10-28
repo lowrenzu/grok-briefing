@@ -8,6 +8,7 @@
     "google_client_id": "",
     "google_client_secret": "",
     "allowed_emails": "",
+    "admin_email": "",
     "public_url": ""
   }
 }

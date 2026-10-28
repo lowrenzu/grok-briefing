@@ -1,5 +1,6 @@
 # Secrets et données personnelles locales
 /config.json
+/access.json
 /notes/
 /examples/demo-notes/captures/
 /viewer/graph-data.js
