@@ -1,18 +1,20 @@
 #!/usr/bin/env bash
 # JARVIS — installation sur un serveur Debian/Ubuntu (VPS OVH ou autre).
 #
-#   sudo bash install.sh                         # domaine par défaut
+#   sudo bash install.sh                              # domaine par défaut
 #   sudo JARVIS_DOMAIN=jarvis.exemple.fr bash install.sh
+#   sudo JARVIS_SKIP_CADDY=1 bash install.sh          # si un autre serveur web tient déjà 80/443
 #
 # Le script est rejouable : relancé, il met simplement JARVIS à jour.
-# Il installe Caddy en frontal (HTTPS automatique) et JARVIS derrière,
-# accessible uniquement depuis la machine elle-même (127.0.0.1).
+# Il n'écrase rien : un Caddyfile existant est sauvegardé puis complété.
+# JARVIS n'écoute qu'en 127.0.0.1, derrière un frontal HTTPS.
 set -euo pipefail
 
 DOMAIN="${JARVIS_DOMAIN:-jarvis.gabrielleorpel.com}"
 APP_DIR="${JARVIS_DIR:-/opt/jarvis}"
 PORT="${JARVIS_PORT:-4700}"
 SERVICE_USER="jarvis"
+CONFIG="$APP_DIR/config.json"
 
 say()  { printf '\n\033[1;36m▸ %s\033[0m\n' "$*"; }
 ok()   { printf '  \033[1;32m✓\033[0m %s\n' "$*"; }
@@ -62,24 +64,23 @@ rsync -a --delete \
     --exclude '__pycache__' \
     --exclude 'access.json' \
     --exclude 'notes/' \
+    --exclude 'config.json' \
     ./ "$APP_DIR"/
 chown -R "$SERVICE_USER":"$SERVICE_USER" "$APP_DIR"
 chmod 700 "$APP_DIR"
 ok "$(find "$APP_DIR" -type f | wc -l) fichiers copiés"
 
 # ---------------------------------------------------------------- configuration
-CONFIG="$APP_DIR/config.json"
 if [ ! -f "$CONFIG" ]; then
     say "Identifiants Google"
-    echo "  Colle l'ID client puis le code secret (Google Auth Platform → Clients)."
-    echo "  Laisse vide si tu l'as déjà mis dans config.json."
+    echo "  ID client, code secret (Google Auth Platform → Clients), puis l'adresse administrateur."
     read -rp "  ID client      : " CLIENT_ID
     read -rsp "  Code secret    : " CLIENT_SECRET
     echo
     read -rp "  Ton adresse Gmail (administrateur) : " ADMIN_EMAIL
 
     [ -n "$CLIENT_ID" ] && [ -n "$CLIENT_SECRET" ] && [ -n "$ADMIN_EMAIL" ] \
-        || die "Les trois valeurs sont nécessaires (réessaie en relançant le script)."
+        || die "Les trois valeurs sont nécessaires (relance le script)."
 
     python3 - "$CONFIG" "$CLIENT_ID" "$CLIENT_SECRET" "$ADMIN_EMAIL" "$DOMAIN" <<'PY'
 import json, sys
@@ -138,8 +139,8 @@ systemctl is-active --quiet jarvis && ok "jarvis démarré" || die "Le service n
 
 # ---------------------------------------------------------------- Caddy en frontal
 say "Caddy en frontal (HTTPS automatique)"
-cat > /etc/caddy/Caddyfile <<EOF
-# JARVIS — HTTPS géré par Caddy, JARVIS n'écoute qu'en local.
+CADDYFILE=/etc/caddy/Caddyfile
+BLOCK_TXT="# JARVIS — HTTPS géré par Caddy, JARVIS n'écoute qu'en local.
 $DOMAIN {
 	encode zstd gzip
 	reverse_proxy 127.0.0.1:$PORT
@@ -147,13 +148,32 @@ $DOMAIN {
 		output file /var/log/caddy/jarvis.log
 		format console
 	}
-}
-EOF
-install -d -o caddy -g caddy -m 755 /var/log/caddy 2>/dev/null || mkdir -p /var/log/caddy
-caddy validate --config /etc/caddy/Caddyfile >/dev/null 2>&1 || die "Caddyfile invalide."
-systemctl enable --now caddy >/dev/null 2>&1
-systemctl reload caddy 2>/dev/null || systemctl restart caddy
-ok "caddy actif pour $DOMAIN"
+}"
+
+if [ "${JARVIS_SKIP_CADDY:-0}" = "1" ]; then
+    warn "Configuration Caddy ignorée (JARVIS_SKIP_CADDY=1)"
+    printf '%s\n' "$BLOCK_TXT" | sed 's/^/    /'
+elif systemctl is-active --quiet nginx 2>/dev/null || systemctl is-active --quiet apache2 2>/dev/null; then
+    warn "nginx/Apache occupe déjà 80 et 443 : je n'y touche pas."
+    warn "Ajoute ce bloc au serveur web existant (proxy vers 127.0.0.1:$PORT) :"
+    printf '%s\n' "$BLOCK_TXT" | sed 's/^/    /'
+else
+    install -d -o caddy -g caddy -m 755 /var/log/caddy 2>/dev/null || mkdir -p /var/log/caddy
+    if [ -s "$CADDYFILE" ] && ! grep -q "$DOMAIN" "$CADDYFILE"; then
+        # Un Caddyfile existe déjà : sauvegarde, puis AJOUT. On ne remplace jamais.
+        BACKUP="$CADDYFILE.bak.$(date +%Y%m%d-%H%M%S)"
+        cp "$CADDYFILE" "$BACKUP"
+        printf '\n%s\n' "$BLOCK_TXT" >> "$CADDYFILE"
+        ok "bloc JARVIS ajouté au Caddyfile existant (sauvegarde : $BACKUP)"
+    else
+        printf '%s\n' "$BLOCK_TXT" > "$CADDYFILE"
+        ok "Caddyfile écrit"
+    fi
+    caddy validate --config "$CADDYFILE" >/dev/null 2>&1 || die "Caddyfile invalide : rien n'a été rechargé."
+    systemctl enable --now caddy >/dev/null 2>&1
+    systemctl reload caddy 2>/dev/null || systemctl restart caddy
+    ok "caddy actif pour $DOMAIN"
+fi
 
 # ---------------------------------------------------------------- pare-feu
 say "Pare-feu"
@@ -161,15 +181,15 @@ ufw allow 22/tcp   >/dev/null 2>&1 || true
 ufw allow 80/tcp   >/dev/null 2>&1 || true
 ufw allow 443/tcp  >/dev/null 2>&1 || true
 ufw --force enable >/dev/null 2>&1 || true
-ok "seuls 22, 80 et 443 sont ouverts (JARVIS n'est jamais exposé en direct)"
+ok "22, 80 et 443 ouverts (JARVIS n'est jamais exposé en direct)"
 
 # ---------------------------------------------------------------- bilan
 say "Vérifications"
 sleep 1
-local_code="$(curl -s -o /dev/null -w '%{http_code}' "http://127.0.0.1:$PORT/" || true)"
-case "$local_code" in
-    200|302) ok "JARVIS répond en local ($local_code → redirection vers Google)" ;;
-    *)       warn "JARVIS ne répond pas encore en local ($local_code)" ;;
+LOCAL_CODE="$(curl -s -o /dev/null -w '%{http_code}' "http://127.0.0.1:$PORT/" || true)"
+case "$LOCAL_CODE" in
+    200|302) ok "JARVIS répond en local ($LOCAL_CODE → redirection vers Google)" ;;
+    *)       warn "JARVIS ne répond pas encore en local ($LOCAL_CODE)" ;;
 esac
 
 cat <<EOF
@@ -179,18 +199,19 @@ cat <<EOF
   └──────────────────────────────────────────────────────────────┘
 
   Adresse          : https://$DOMAIN
-  Administrateur   : voir $APP_DIR/access.json
+  Programme        : $APP_DIR
+  Identifiants     : $CONFIG  (droits 600)
+  Liste des accès  : $APP_DIR/access.json
   Journaux         : journalctl -u jarvis -f
   Mise à jour      : relancer ce script
   Redémarrage      : systemctl restart jarvis
 
-  Il reste deux choses à faire, une seule fois :
-    1. dans la zone DNS du domaine, une entrée A « $(echo "$DOMAIN" | cut -d. -f1) »
-       qui pointe vers l'adresse IP de ce serveur ;
-    2. dans Google (Clients → ton application), ajouter l'adresse de retour :
+  Il reste deux gestes, une seule fois :
+    1. zone DNS du domaine : une entrée A « $(printf '%s' "$DOMAIN" | cut -d. -f1) »
+       vers l'adresse IP de ce serveur ;
+    2. Google (Clients → l'application) : ajouter l'adresse de retour
        https://$DOMAIN/auth/callback
 
-  Une fois le DNS propagé, ouvre https://$DOMAIN : la connexion Google
-  s'affiche, et toi seul peux entrer.
+  Ensuite, https://$DOMAIN affiche la connexion Google : toi seul entres.
 
 EOF
