@@ -202,6 +202,13 @@ def client_is_local(handler: BaseHTTPRequestHandler) -> bool:
     return address in {"127.0.0.1", "::1", "localhost"} or address.startswith("127.")
 
 
+def settings_open_for(handler: BaseHTTPRequestHandler) -> bool:
+    """Le panneau est-il modifiable depuis cet appareil ? (même règle que settings_writable)"""
+    if os.environ.get("JARVIS_SETTINGS") == "0":
+        return False
+    return client_is_local(handler) or os.environ.get("JARVIS_SETTINGS_LAN") == "1"
+
+
 def settings_writable(handler: BaseHTTPRequestHandler) -> tuple[bool, str]:
     """Le panneau Réglages écrit des secrets : il reste réservé au PC par défaut.
 
@@ -210,6 +217,8 @@ def settings_writable(handler: BaseHTTPRequestHandler) -> tuple[bool, str]:
     porter l'en-tête X-Jarvis-Settings, ce qui bloque les formulaires forgés par un
     site tiers (il faudrait un accord CORS que ce serveur n'accorde pas).
     """
+    if os.environ.get("JARVIS_SETTINGS") == "0":
+        return False, "Réglages verrouillés sur ce serveur (JARVIS_SETTINGS=0). Modifiez config.json à la main."
     if handler.headers.get("X-Jarvis-Settings") != "1":
         return False, "Requête refusée : en-tête JARVIS manquant."
     if client_is_local(handler) or os.environ.get("JARVIS_SETTINGS_LAN") == "1":
@@ -521,7 +530,7 @@ class JarvisHandler(BaseHTTPRequestHandler):
                 "noteCount": len(notes),
                 "isDemo": notes_are_demo(),
                 "notesDirResolved": str(NOTES_DIR),
-                "canEdit": client_is_local(self) or os.environ.get("JARVIS_SETTINGS_LAN") == "1",
+                "canEdit": settings_open_for(self),
             })
             return self.send_json(payload)
 
