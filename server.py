@@ -68,6 +68,11 @@ AI = ai_providers.AiSettings(CONFIG_PATH)
 # une adresse autorisée sont fournis (config.json ou variables d'environnement).
 def _auth_from_config() -> auth_module.GoogleAuth:
     block = CONFIG.get("auth") if isinstance(CONFIG.get("auth"), dict) else {}
+    # Échappatoire de développement : JARVIS_AUTH=off démarre sans la porte Google.
+    # Utile pour voir l'interface en local sans configurer Google ; à ne jamais
+    # laisser dans un déploiement accessible depuis Internet.
+    if os.environ.get("JARVIS_AUTH", "").strip().lower() in {"off", "0", "false", "non"}:
+        return auth_module.GoogleAuth(client_id="", client_secret="", allowed="", public_url="")
     return auth_module.GoogleAuth(
         client_id=os.environ.get("JARVIS_GOOGLE_CLIENT_ID") or str(block.get("google_client_id") or ""),
         client_secret=os.environ.get("JARVIS_GOOGLE_CLIENT_SECRET") or str(block.get("google_client_secret") or ""),
@@ -972,6 +977,8 @@ def main() -> None:
     print("\n  JARVIS est prêt.")
     print(f"  Notes : {len(graph['nodes'])}  ·  Liens : {len(graph['links'])}")
     print(f"  IA : {AI.spec['label'] + ' · ' + AI.model if AI.configured else 'mode local (sans clé API)'}")
+    if os.environ.get("JARVIS_AUTH", "").strip().lower() in {"off", "0", "false", "non"}:
+        print("  ⚠ Connexion Google désactivée par JARVIS_AUTH=off (développement seulement).")
     if AUTH.ready:
         print(f"  Accès : connexion Google obligatoire ({ACCESS.count} adresse(s)) · administrateur {ACCESS.admin or '—'}")
     elif AUTH.enabled:

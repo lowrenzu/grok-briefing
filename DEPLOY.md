@@ -165,6 +165,21 @@ Depuis cette version, JARVIS peut exiger une **connexion Google** avant d'affich
 
 > ⚠️ Le **code secret n'est affiché qu'une seule fois** à la création. Copiez-le tout de suite. Si vous le perdez, créez-en un nouveau dans l'onglet **Clients** (l'ancien peut être supprimé).
 
+### 1 bis. Vérifier que la porte est fermée
+
+Une fois les identifiants en place, JARVIS refuse tout visiteur sans session :
+
+```bash
+curl -s -o /dev/null -w "%{http_code} %{redirect_url}\n" http://localhost:4700/   # 302 .../auth/login
+curl -s -o /dev/null -w "%{http_code}\n" http://localhost:4700/api/status         # 401
+```
+
+Pour voir l'interface sans configurer Google (développement uniquement) :
+
+```bash
+JARVIS_AUTH=off python3 server.py    # ⚠ jamais sur un serveur accessible depuis Internet
+```
+
 ### 2. Renseigner JARVIS
 
 Dans `config.json` :
