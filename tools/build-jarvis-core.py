@@ -194,6 +194,14 @@ def build_disc() -> None:
     finish(np.clip(rgb * 1.04, 0, 1), feather(alpha, 0.9), "jarvis-core-disc.png")
 
 
+def build_disc_tint(source: str, name: str, gain: float) -> None:
+    """Variantes colorées de l'anneau HUD, utilisées comme nappes de voix."""
+    rgb = load(source)
+    ink, _, _ = ink_field(rgb)
+    alpha = smooth(ink, 0.03, 0.10)
+    finish(np.clip(rgb * gain, 0, 1), feather(alpha, 0.9), name)
+
+
 def build_light() -> None:
     """Œil lumineux : le noyau blanc est comblé, le halo reste fondu."""
     rgb = load("core-eye.jpg")
@@ -257,6 +265,8 @@ if __name__ == "__main__":
     build_crown()
     build_veil()
     build_disc()
+    build_disc_tint("hud-violet.jpg", "jarvis-core-hud-violet.png", 1.04)
+    build_disc_tint("hud-ambre.jpg", "jarvis-core-hud-ambre.png", 1.02)
     build_light()
     if arguments.preview:
         preview()

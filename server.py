@@ -509,6 +509,8 @@ class JarvisHandler(BaseHTTPRequestHandler):
             "/assets/jarvis-core-veil.png": ROOT / "viewer" / "assets" / "jarvis-core-veil.png",
             "/assets/jarvis-core-disc.png": ROOT / "viewer" / "assets" / "jarvis-core-disc.png",
             "/assets/jarvis-core-light.png": ROOT / "viewer" / "assets" / "jarvis-core-light.png",
+            "/assets/jarvis-core-hud-violet.png": ROOT / "viewer" / "assets" / "jarvis-core-hud-violet.png",
+            "/assets/jarvis-core-hud-ambre.png": ROOT / "viewer" / "assets" / "jarvis-core-hud-ambre.png",
         }
         asset = assets.get(path)
         if asset is None:

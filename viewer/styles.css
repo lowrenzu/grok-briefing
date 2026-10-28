@@ -43,7 +43,12 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, a:focus-visib
    bord extérieur 0,97) : la lumière ne déborde donc jamais sur le logement métallique. */
 .core-disc { display: grid; grid-template-columns: 1fr; grid-template-rows: 1fr; opacity: calc(.62 + .34 * var(--jarvis-voice)); transition: opacity .12s ease-out; }
 .core-disc > * { grid-area: 1 / 1; }
-.core-disc img { width: 72%; height: 72%; mix-blend-mode: screen; animation: jarvis-core-spin 30s linear infinite; }
+.core-disc img { width: 72%; height: 72%; mix-blend-mode: screen; }
+.core-disc-base { animation: jarvis-core-spin 30s linear infinite; }
+/* Nappes de voix : l'anneau se teinte en violet puis en ambre pendant la synthèse. */
+.core-voice-tint { opacity: 0; will-change: opacity; }
+.core-voice-violet { animation: jarvis-core-spin-reverse 26s linear infinite; }
+.core-voice-ambre { animation: jarvis-core-spin 34s linear infinite; }
 .core-disc-sweep, .core-disc-spark { display: block; width: 72%; height: 72%; border-radius: 50%; pointer-events: none; mix-blend-mode: screen; will-change: transform; }
 /* Balayage principal : deux secteurs opposés, la couronne s'allume en tournant. */
 .core-disc-sweep {
@@ -73,6 +78,17 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, a:focus-visib
 .jarvis-core-base { position: absolute; left: 50%; top: 96%; width: 62%; height: 13%; margin-left: -31%; border-radius: 50%; background: radial-gradient(ellipse at center, rgba(96,226,255,.5), rgba(40,150,215,.14) 55%, transparent 78%); opacity: .55; }
 @keyframes jarvis-core-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 @keyframes jarvis-core-spin-reverse { from { transform: rotate(360deg); } to { transform: rotate(0deg); } }
+/* Les deux nappes se relaient : violet sur les syllabes, ambre en réponse. */
+@keyframes jarvis-voice-violet {
+  0%, 100% { opacity: 0; }
+  22% { opacity: calc(.12 + .18 * var(--jarvis-voice, 0)); }
+  48% { opacity: calc(.10 + .16 * var(--jarvis-voice, 0)); }
+}
+@keyframes jarvis-voice-ambre {
+  0%, 100% { opacity: 0; }
+  30% { opacity: calc(.09 + .16 * var(--jarvis-voice, 0)); }
+  62% { opacity: calc(.08 + .12 * var(--jarvis-voice, 0)); }
+}
 @keyframes jarvis-core-pulse { 0%, 100% { transform: scale(.97); } 50% { transform: scale(1.045); } }
 
 /* Parole : les anneaux accélèrent et s'éclairent, l'orbe bat plus vite. */
@@ -80,11 +96,14 @@ body.jarvis-speaking .core-ring { opacity: 1; }
 body.jarvis-speaking .core-veil { opacity: 1; }
 body.jarvis-speaking .core-ring img { animation-duration: 34s; }
 body.jarvis-speaking .core-veil img { animation-duration: 22s; }
-body.jarvis-speaking .core-disc img { animation-duration: 11s; }
+body.jarvis-speaking .core-disc-base { animation-duration: 11s; }
+body.jarvis-speaking .core-voice-violet { animation: jarvis-core-spin-reverse 9s linear infinite, jarvis-voice-violet 3.4s ease-in-out infinite; }
+body.jarvis-speaking .core-voice-ambre { animation: jarvis-core-spin 13s linear infinite, jarvis-voice-ambre 5.1s ease-in-out infinite 1.2s; }
 body.jarvis-speaking .core-disc-sweep { animation-duration: 3.2s; }
 body.jarvis-speaking .core-disc-spark { animation-duration: 1.9s; }
 body.jarvis-speaking .core-light img { animation-duration: 1.6s; }
-body.jarvis-speaking .jarvis-core-base { opacity: .9; }
+body.jarvis-speaking .jarvis-core-base { opacity: .9; animation: jarvis-base-breathe 1.9s ease-in-out infinite; }
+@keyframes jarvis-base-breathe { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.06); } }
 body.jarvis-speaking .jarvis-core-beam { opacity: .8; }
 
 .command-topbar {  position: relative; z-index: 10; display: flex; align-items: center; justify-content: space-between; gap: 16px; height: 62px; padding: 0 clamp(16px, 2.4vw, 36px); border-bottom: 1px solid rgba(153,205,229,.14); background: rgba(4,10,16,.58); backdrop-filter: blur(18px); }
@@ -454,7 +473,7 @@ button:hover .chevron { color: var(--cyan); transform: translateX(2px); }
 }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; }
-  .jarvis-core-layer img, .jarvis-core-beam, .core-disc-sweep, .core-disc-spark { animation: none !important; }
+  .jarvis-core-layer img, .jarvis-core-beam, .core-disc-sweep, .core-disc-spark, .core-voice-tint, .jarvis-core-base { animation: none !important; }
   body.jarvis-speaking .core-ring { opacity: 1; }
   body.jarvis-speaking .core-veil { opacity: 1; }
 }
