@@ -6,9 +6,9 @@
   <meta name="theme-color" content="#070b12">
   <meta name="description" content="JARVIS — votre assistant personnel, dans un cockpit holographique.">
   <title>JARVIS — Personal AI Command Center</title>
-  <link rel="stylesheet" href="/styles.css?v=20261028b">
-  <script defer src="/graph-data.js?v=20261028b"></script>
-  <script defer src="/app.js?v=20261028b"></script>
+  <link rel="stylesheet" href="/styles.css?v=20261028c">
+  <script defer src="/graph-data.js?v=20261028c"></script>
+  <script defer src="/app.js?v=20261028c"></script>
 </head>
 <body>
   <div class="screen-shade" aria-hidden="true"></div>
@@ -101,6 +101,18 @@
     </section>
 
     <aside class="right-column" aria-label="Agents et assistant">
+      <aside class="assistant-panel glass-card" aria-labelledby="assistantTitle">
+        <div class="assistant-heading">
+          <div class="assistant-avatar" aria-hidden="true"><span></span></div>
+          <div class="assistant-title-wrap"><div class="eyebrow">VOTRE ASSISTANT</div><h2 id="assistantTitle">À votre service<span class="title-period">.</span></h2><div class="assistant-state"><span class="tiny-dot"></span><span id="brainLabel">MODE LOCAL</span><span class="state-separator">·</span><span id="modelLabel">PRÊT</span></div></div>
+          <button class="voice-toggle" id="voiceToggle" type="button" aria-pressed="false" title="Activer la voix et l’animation de JARVIS"><span aria-hidden="true">◖</span><span id="voiceToggleLabel">VOIX OFF</span></button>
+        </div>
+        <div class="chat-scroll" id="chatMessages" role="log" aria-live="polite" aria-relevant="additions text"></div>
+        <div class="thinking-line" id="thinkingLine" hidden><span class="thinking-bars"><i></i><i></i><i></i></span><span id="thinkingText">JARVIS réfléchit…</span></div>
+        <div class="quick-prompts" id="quickPrompts" aria-label="Suggestions de questions"><span class="quick-label">POUR COMMENCER</span><div class="quick-list"><button type="button" data-prompt="Résume les notes disponibles.">Résume mes notes</button><button type="button" data-prompt="Que faut-il vérifier avant une sortie de pêche ?">Tester une note</button></div></div>
+        <form class="composer" id="chatForm"><label class="sr-only" for="questionInput">Votre message à JARVIS</label><textarea id="questionInput" rows="1" maxlength="4000" placeholder="Demandez à JARVIS…" autocomplete="off"></textarea><div class="composer-bottom"><div class="composer-hint"><span class="lock-icon" aria-hidden="true">◇</span><span id="privacyHint">Vos notes restent sur cet appareil</span></div><div class="composer-actions"><button class="mic-button" id="micButton" type="button" aria-label="Dicter un message" title="Dicter un message"><span aria-hidden="true">♬</span></button><button class="send-button" id="sendButton" type="submit" aria-label="Envoyer" title="Envoyer"><span>ENVOYER</span><b aria-hidden="true">↑</b></button></div></div></form>
+        <div class="assistant-foot"><span>JARVIS <span class="foot-separator">/</span> SECOND CERVEAU</span><span id="buildLabel">LOCAL FIRST</span></div>
+      </aside>
       <section class="glass-card agents-card">
         <div class="card-heading"><div><div class="eyebrow">ÉQUIPE JARVIS</div><h2>Agents disponibles</h2></div><span class="agents-count">8 <i>PROFILS</i></span></div>
         <div class="demo-note" id="agentLiveNote">MÉTÉO EN COURS DE CONNEXION · 7 PROFILS EN DÉMO</div>
@@ -123,18 +135,6 @@
         <button class="recommendation-row" type="button" data-prompt="Quelles idées de vidéo ai-je notées ?"><span class="recommendation-thumb thumb-video"><i>▶</i></span><span><b>Vidéo · techniques de pêche</b><small>Idée de contenu · niveau intermédiaire</small></span><span class="chevron">›</span></button>
       </section>
 
-      <aside class="assistant-panel glass-card" aria-labelledby="assistantTitle">
-        <div class="assistant-heading">
-          <div class="assistant-avatar" aria-hidden="true"><span></span></div>
-          <div class="assistant-title-wrap"><div class="eyebrow">VOTRE ASSISTANT</div><h2 id="assistantTitle">À votre service<span class="title-period">.</span></h2><div class="assistant-state"><span class="tiny-dot"></span><span id="brainLabel">MODE LOCAL</span><span class="state-separator">·</span><span id="modelLabel">PRÊT</span></div></div>
-          <button class="voice-toggle" id="voiceToggle" type="button" aria-pressed="false" title="Activer la voix et l’animation de JARVIS"><span aria-hidden="true">◖</span><span id="voiceToggleLabel">VOIX OFF</span></button>
-        </div>
-        <div class="chat-scroll" id="chatMessages" role="log" aria-live="polite" aria-relevant="additions text"></div>
-        <div class="thinking-line" id="thinkingLine" hidden><span class="thinking-bars"><i></i><i></i><i></i></span><span id="thinkingText">JARVIS réfléchit…</span></div>
-        <div class="quick-prompts" id="quickPrompts" aria-label="Suggestions de questions"><span class="quick-label">POUR COMMENCER</span><div class="quick-list"><button type="button" data-prompt="Résume les notes disponibles.">Résume mes notes</button><button type="button" data-prompt="Que faut-il vérifier avant une sortie de pêche ?">Tester une note</button></div></div>
-        <form class="composer" id="chatForm"><label class="sr-only" for="questionInput">Votre message à JARVIS</label><textarea id="questionInput" rows="1" maxlength="4000" placeholder="Demandez à JARVIS…" autocomplete="off"></textarea><div class="composer-bottom"><div class="composer-hint"><span class="lock-icon" aria-hidden="true">◇</span><span id="privacyHint">Vos notes restent sur cet appareil</span></div><div class="composer-actions"><button class="mic-button" id="micButton" type="button" aria-label="Dicter un message" title="Dicter un message"><span aria-hidden="true">♬</span></button><button class="send-button" id="sendButton" type="submit" aria-label="Envoyer" title="Envoyer"><span>ENVOYER</span><b aria-hidden="true">↑</b></button></div></div></form>
-        <div class="assistant-foot"><span>JARVIS <span class="foot-separator">/</span> SECOND CERVEAU</span><span id="buildLabel">LOCAL FIRST</span></div>
-      </aside>
     </aside>
   </main>
 
