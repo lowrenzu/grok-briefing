@@ -55,7 +55,7 @@
   let projectedNodes = [];
   // Couronne de notes : son rayon se déduit du cœur mesuré à l'écran, pour que les
   // notes restent juste autour de JARVIS au lieu de partir vers les bords de la scène.
-  const orbit = { cx: 0, cy: 0, inner: 0, depth: 0 };
+  const orbit = { cx: 0, cy: 0, rx: 0, ry: 0, inner: 0 };
   const positions = new Map();
   const pulseTimes = new Map();
 
@@ -114,53 +114,34 @@
       orbit.cx = width / 2;
       orbit.cy = height * .47;
     }
-    // La couronne passe juste au ras du logement : les notes restent collées à JARVIS
-    // et leurs libellés restent dans la scène, donc lisibles.
-    orbit.inner = heart + Math.max(18, base * .035);
-    orbit.depth = base * .062;
+    // Deuxième cercle : une orbite autour du logement. Elle est légèrement ovale, car la
+    // place libre n'est pas la même horizontalement (les colonnes de catégories) et
+    // verticalement. Ainsi TOUTES les notes tiennent sur ce seul cercle.
+    const catNode = stage.querySelector(".cat-fishing") || stage.querySelector(".category-node");
+    let freeHalf = width / 2 - 10;
+    if (catNode && catNode.offsetWidth) {
+      freeHalf = Math.max(heart + 18, width / 2 - (catNode.offsetLeft + catNode.offsetWidth) - 8);
+    }
+    orbit.inner = heart + Math.max(12, base * .028);
+    orbit.rx = Math.max(heart + 18, Math.min(heart + base * .065, freeHalf));
+    orbit.ry = Math.max(heart + 26, Math.min(heart + base * .1, height / 2 - 34));
   }
 
   function makePosition(index, total) {
-    const y = 1 - (2 * (index + .5)) / Math.max(total, 1);
-    const radius = Math.sqrt(Math.max(0, 1 - y * y));
-    const angle = Math.PI * (3 - Math.sqrt(5)) * index;
-    return { x: Math.cos(angle) * radius, y, z: Math.sin(angle) * radius };
+    // Deuxième cercle : toutes les notes sont réparties régulièrement sur un même
+    // anneau (aucune dispersion en profondeur), autour du cœur de JARVIS.
+    const angle = (index / Math.max(total, 1)) * Math.PI * 2 - Math.PI / 2;
+    return { x: Math.cos(angle), y: Math.sin(angle), z: 0 };
   }
 
-  function ensurePositions(parentIndex = null) {
+  function ensurePositions() {
+    // Toutes les notes, sans exception, occupent une place sur le deuxième cercle :
+    // les anciens décalages « autour du parent » sont supprimés, sinon certaines notes
+    // sortaient de l'anneau et flottaient entre le cœur et les bords.
     const count = graph.nodes.length;
-    for (let index = 0; index < count; index += 1) {
-      const node = graph.nodes[index];
-      if (positions.has(node.id)) continue;
-      let parent = Number.isInteger(parentIndex) ? parentIndex : null;
-      if (parent === node.id || !positions.has(parent)) parent = null;
-      if (parent === null) {
-        const link = graph.links.find((item) => {
-          const source = typeof item.source === "object" ? item.source.id : item.source;
-          const target = typeof item.target === "object" ? item.target.id : item.target;
-          return source === node.id && positions.has(target) || target === node.id && positions.has(source);
-        });
-        if (link) {
-          const source = typeof link.source === "object" ? link.source.id : link.source;
-          const target = typeof link.target === "object" ? link.target.id : link.target;
-          parent = source === node.id ? target : source;
-        }
-      }
-      if (parent !== null && positions.has(parent)) {
-        const origin = positions.get(parent);
-        const angle = index * 2.399963229728653;
-        const offset = .18 + (index % 3) * .035;
-        const candidate = {
-          x: origin.x + Math.cos(angle) * offset,
-          y: origin.y + Math.sin(angle * .8) * offset,
-          z: origin.z + Math.sin(angle) * offset,
-        };
-        const length = Math.hypot(candidate.x, candidate.y, candidate.z) || 1;
-        positions.set(node.id, { x: candidate.x / length, y: candidate.y / length, z: candidate.z / length });
-      } else {
-        positions.set(node.id, makePosition(index, count));
-      }
-    }
+    graph.nodes.forEach((node, index) => {
+      if (!positions.has(node.id)) positions.set(node.id, makePosition(index, count));
+    });
   }
 
   function neighborsOf(id) {
@@ -175,36 +156,21 @@
   }
 
   function projectPoint(position) {
-    const cosY = Math.cos(rotationY);
-    const sinY = Math.sin(rotationY);
-    const x1 = position.x * cosY + position.z * sinY;
-    const z1 = -position.x * sinY + position.z * cosY;
-    const cosX = Math.cos(rotationX);
-    const sinX = Math.sin(rotationX);
-    const y2 = position.y * cosX - z1 * sinX;
-    const z2 = position.y * sinX + z1 * cosX;
-    const factor = 1 / (1.62 - z2 * .43);
     const viewScale = Math.min(1.08, Math.max(1, zoom));
-    // Rayon de couronne : juste au-delà du cœur, avec une faible variation de profondeur
-    // (0,49 → 0,84 est la plage réelle du facteur de perspective).
-    const depth = Math.max(0, Math.min(1, (factor - .49) / .35));
-    const worldRadius = (orbit.inner + depth * orbit.depth) * viewScale;
-    let offsetX = x1 * worldRadius;
-    let offsetY = y2 * worldRadius;
-    const distance = Math.hypot(offsetX, offsetY);
-    // Garde-fou : aucune note ne doit passer devant le logement de JARVIS.
-    const orbitRadius = orbit.inner * viewScale;
-    if (distance < orbitRadius) {
-      const angle = distance > .001 ? Math.atan2(offsetY, offsetX) : Math.atan2(position.y, position.x) + rotationY;
-      offsetX = Math.cos(angle) * orbitRadius;
-      offsetY = Math.sin(angle) * orbitRadius;
-    }
+    // Toutes les notes sont sur le même deuxième cercle : un seul rayon par axe, donc
+    // aucune note ne s'échappe entre le cœur et les bords.
+    const angle = Math.atan2(position.y, position.x) + rotationY;
+    // Inclinaison : glisser verticalement redresse ou aplatit l'orbite.
+    const tilt = .62 + .38 * Math.abs(Math.cos(rotationX));
+    const offsetX = Math.cos(angle) * orbit.rx * viewScale;
+    const offsetY = Math.sin(angle) * orbit.ry * tilt * viewScale;
+    const depth = (Math.sin(angle) + 1) / 2;
     return {
       x: orbit.cx + offsetX,
       y: orbit.cy + offsetY,
-      z: z2,
-      factor,
-      radius: worldRadius,
+      z: Math.sin(angle),
+      factor: .74 + depth * .38,
+      radius: Math.hypot(offsetX, offsetY),
     };
   }
 
@@ -225,7 +191,7 @@
       const starX = star.x * width;
       const starY = star.y * height;
       const fromCenter = Math.hypot(starX - orbit.cx, starY - orbit.cy);
-      const avatarClear = orbit.inner * .82;
+      const avatarClear = orbit.inner * .86;
       const fade = Math.max(.08, Math.min(1, (fromCenter - avatarClear) / (Math.min(width, height) * .1)));
       context.globalAlpha = star.alpha * twinkle * fade;
       context.fillStyle = "#d9f5fb";
@@ -346,23 +312,26 @@
         const radialLength = Math.hypot(radialX, radialY) || 1;
         const outwardX = radialX / radialLength;
         const outwardY = radialY / radialLength;
-        context.globalAlpha = isSelected || isHovered ? 1 : .94;
-        // Libellés lisibles : plus grands qu'avant, cernés de sombre pour se détacher
-        // du décor, et maintenus à l'intérieur de la scène.
+        context.globalAlpha = isSelected || isHovered ? 1 : .95;
+        // Libellés lisibles : grands, cernés de sombre, et placés dans le couloir libre
+        // entre le cœur et les colonnes de catégories.
         context.font = `${isSelected || isHovered ? 11 : 10}px ui-monospace, SFMono-Regular, Menlo, monospace`;
-        context.textAlign = outwardX > .25 ? "left" : outwardX < -.25 ? "right" : "center";
         context.textBaseline = "middle";
         context.shadowColor = "rgba(0, 0, 0, .98)";
         context.shadowBlur = 7;
         context.fillStyle = isSelected ? "#f6ffff" : isHovered ? "#e8fbff" : "#dcf3f8";
-        const label = node.label.length > 26 ? `${node.label.slice(0, 24)}…` : node.label;
-        const maxWidth = Math.min(180, Math.max(120, width * .3));
-        const textWidth = Math.min(context.measureText(label).width, maxWidth);
-        let labelX = point.x + outwardX * (radius + 7);
-        let labelY = point.y + outwardY * (radius + 7);
-        const half = context.textAlign === "center" ? textWidth / 2 : 0;
-        const leftBound = context.textAlign === "right" ? textWidth : half;
-        const rightBound = context.textAlign === "left" ? textWidth : half;
+        const label = node.label.length > 24 ? `${node.label.slice(0, 22)}…` : node.label;
+        const maxWidth = Math.min(174, Math.max(110, width * .28));
+        const offset = radius + 9;
+        // Les notes franchement sur les côtés reçoivent leur libellé au-dessus ou en
+        // dessous : posé à l'extérieur, le texte sortirait de la scène.
+        const side = Math.abs(outwardX) > .72;
+        context.textAlign = side ? "center" : outwardX > .25 ? "left" : outwardX < -.25 ? "right" : "center";
+        let labelX = point.x + (side ? 0 : outwardX * offset);
+        let labelY = side ? point.y + (outwardY < 0 ? -offset : offset) : point.y + outwardY * offset;
+        const half = context.textAlign === "center" ? maxWidth / 2 : 0;
+        const leftBound = context.textAlign === "right" ? maxWidth : half;
+        const rightBound = context.textAlign === "left" ? maxWidth : half;
         labelX = Math.max(8 + leftBound, Math.min(width - 8 - rightBound, labelX));
         labelY = Math.max(14, Math.min(height - 12, labelY));
         context.lineWidth = 3;
@@ -418,27 +387,22 @@
   function cameraTo(id, extraZoom = 1.22) {
     const point = positions.get(id);
     if (!point) return;
-    const yAngle = Math.atan2(-point.x, point.z);
-    const zAfterYaw = Math.hypot(point.x, point.z);
-    const xAngle = Math.atan2(point.y, zAfterYaw || .001);
-    targetRotation = { x: xAngle, y: yAngle, zoom: extraZoom };
+    // L'anneau ne se « retourne » plus : on le fait simplement tourner pour placer la
+    // note choisie en bas de l'orbite, là où rien ne la masque.
+    targetRotation = { x: rotationX, y: Math.PI / 2 - Math.atan2(point.y, point.x), zoom: extraZoom };
   }
 
   function cameraToCluster(ids) {
     const points = ids.map((id) => positions.get(id)).filter(Boolean);
     if (!points.length) return;
-    const center = points.reduce((sum, point) => ({ x: sum.x + point.x, y: sum.y + point.y, z: sum.z + point.z }), { x: 0, y: 0, z: 0 });
-    center.x /= points.length; center.y /= points.length; center.z /= points.length;
-    const length = Math.hypot(center.x, center.y, center.z) || 1;
-    cameraToPoint({ x: center.x / length, y: center.y / length, z: center.z / length }, points.length > 7 ? 1.04 : 1.12);
-  }
-
-  function cameraToPoint(point, nextZoom) {
-    targetRotation = {
-      y: Math.atan2(-point.x, point.z),
-      x: Math.atan2(point.y, Math.hypot(point.x, point.z) || .001),
-      zoom: nextZoom,
-    };
+    // Moyenne angulaire (les angles ne s'additionnent pas comme des vecteurs).
+    let sumX = 0;
+    let sumY = 0;
+    for (const point of points) {
+      sumX += Math.cos(Math.atan2(point.y, point.x));
+      sumY += Math.sin(Math.atan2(point.y, point.x));
+    }
+    targetRotation = { x: rotationX, y: Math.PI / 2 - Math.atan2(sumY, sumX), zoom: points.length > 7 ? 1.04 : 1.12 };
   }
 
   function appendElement(parent, tag, className, text) {
