@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#070b12">
+  <meta name="description" content="JARVIS — votre assistant personnel, dans un cockpit holographique.">
+  <title>JARVIS — Personal AI Command Center</title>
+  <link rel="stylesheet" href="/styles.css">
+  <script defer src="/graph-data.js"></script>
+  <script defer src="/app.js"></script>
+</head>
+<body>
+  <div class="screen-shade" aria-hidden="true"></div>
+  <div class="jarvis-hologram" aria-hidden="true">
+    <img class="jarvis-hologram-layer jarvis-hologram-portrait" src="/assets/jarvis-hologram.png" alt="" decoding="async" fetchpriority="high">
+    <img class="jarvis-hologram-layer jarvis-hologram-eyes" src="/assets/jarvis-eyes-glow.png" alt="" decoding="async">
+    <img class="jarvis-hologram-layer jarvis-hologram-voice" src="/assets/jarvis-voice-glow.png" alt="" decoding="async">
+    <span class="jarvis-hologram-layer jarvis-hologram-scan"></span>
+  </div>
+  <header class="command-topbar">
+    <a class="brand" href="/" aria-label="JARVIS, accueil">
+      <span class="brand-mark" aria-hidden="true"><span></span><span></span><span></span></span>
+      <span class="brand-word">JARVIS<span class="brand-period">.</span><small>PERSONAL INTELLIGENCE</small></span>
+    </a>
+    <div class="topbar-center"><span class="pulse-dot"></span><span id="connectionLabel">INITIALISATION</span><i></i><span class="location-tag">SANGUINET · FR</span><i></i><span id="topClock">--:--</span></div>
+    <div class="topbar-right">
+      <div class="top-stat"><span class="stat-icon">✳</span><span><b id="noteCount">0</b><small>NOTES</small></span></div>
+      <div class="top-stat"><span class="stat-icon">⌁</span><span><b id="linkCount">0</b><small>LIENS</small></span></div>
+      <button class="icon-button help-button" id="helpButton" type="button" aria-label="Afficher l'aide" title="Aide">?</button>
+    </div>
+  </header>
+
+  <main class="dashboard-grid">
+    <aside class="left-column" aria-label="Briefing du jour">
+      <section class="glass-card welcome-card">
+        <div class="welcome-top">
+          <span class="welcome-orb" aria-hidden="true"><span>✳</span></span>
+          <div><div class="eyebrow">ASSISTANT PERSONNEL <span class="demo-tag">APERÇU</span></div><h1>Bonjour, monsieur</h1><p>Prêt pour de nouvelles aventures ?</p><small class="welcome-date" id="currentDate"></small></div>
+        </div>
+        <div class="welcome-divider"></div>
+        <button class="brief-row" type="button" data-prompt="Quels sont mes rappels et mes priorités aujourd’hui ?">
+          <span class="brief-icon">▦</span><span class="brief-copy"><b>Aujourd’hui</b><small>4 tâches · 2 rappels <i>· données démo</i></small></span><span class="chevron">›</span>
+        </button>
+        <button class="brief-row" type="button" data-prompt="Quelles sont les conditions de pêche notées dans mes sources ?">
+          <span class="brief-icon">♧</span><span class="brief-copy"><b>Mes agents</b><small>8 profils en démonstration</small></span><span class="chevron">›</span>
+        </button>
+      </section>
+
+      <section class="glass-card weather-card" aria-label="Météo actuelle et prévisions à Sanguinet">
+        <div class="card-heading"><div><div class="eyebrow">MÉTÉO · SANGUINET</div><h2>Conditions du jour</h2></div><span class="demo-tag" id="weatherBadge">DÉMO</span></div>
+        <div class="weather-main"><div class="weather-temp"><b id="weatherTemp">18</b><span>°C</span></div><div class="weather-description"><b id="weatherDescription">Ciel dégagé</b><small id="weatherUpdated">Exemple d’affichage · non actualisé</small></div><span class="sun-icon" id="weatherIcon" aria-hidden="true">☼</span></div>
+        <div class="weather-stats"><span><i>↗</i><b id="weatherWind">12 km/h</b><small>VENT</small></span><span><i>◌</i><b id="weatherHumidity">68%</b><small>HUMIDITÉ</small></span><span><i>☂</i><b id="weatherPrecip">0 mm</b><small>PRÉCIP.</small></span></div>
+        <button class="fishing-condition" type="button" data-prompt="Donne-moi la météo actuelle à Sanguinet."><span class="condition-icon">♧</span><span><b>Conditions météo</b><small id="weatherFishingNote">Données d’exemple · pas un conseil de pêche</small></span><span class="chevron">›</span></button>
+        <div class="weather-forecast">
+          <div class="weather-forecast-heading"><span>PRÉVISIONS</span><small>5 JOURS</small></div>
+          <div class="forecast-days" id="forecastDays" aria-label="Prévisions météo de démonstration sur cinq jours">
+            <div data-forecast-day><small data-forecast-label>MAR</small><span data-forecast-icon>☼</span><b data-forecast-range>19° / 12°</b></div><div data-forecast-day><small data-forecast-label>MER</small><span data-forecast-icon>☼</span><b data-forecast-range>20° / 13°</b></div><div data-forecast-day><small data-forecast-label>JEU</small><span data-forecast-icon>☼</span><b data-forecast-range>21° / 14°</b></div><div data-forecast-day><small data-forecast-label>VEN</small><span data-forecast-icon>◉</span><b data-forecast-range>18° / 11°</b></div><div data-forecast-day><small data-forecast-label>SAM</small><span data-forecast-icon>☼</span><b data-forecast-range>20° / 12°</b></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="glass-card activity-card">
+        <div class="card-heading"><div><div class="eyebrow">ACTIVITÉ RÉCENTE</div><h2>Le fil de vos projets</h2></div><span class="demo-tag">DÉMO</span></div>
+        <div class="activity-list">
+          <button class="activity-row" type="button" data-prompt="Que sais-tu du spot de pêche du lac de Sanguinet dans mes notes ?"><span class="activity-icon fish-icon">♧</span><span class="activity-copy"><b>Analyse des spots · Lac de Sanguinet</b><small>Il y a 12 min · exemple</small></span><span class="chevron">›</span></button>
+          <button class="activity-row" type="button" data-prompt="Montre-moi les notes sur les leurres et le matériel."><span class="activity-icon lure-icon">◈</span><span class="activity-copy"><b>Rendu 3D · leurre de démonstration</b><small>Il y a 1 h · exemple</small></span><span class="chevron">›</span></button>
+          <button class="activity-row" type="button" data-prompt="Quels sont mes projets en cours ?"><span class="activity-icon project-icon">⌘</span><span class="activity-copy"><b>Nouveau projet · Lure Skills</b><small>Il y a 3 h · exemple</small></span><span class="chevron">›</span></button>
+        </div>
+      </section>
+
+    </aside>
+
+    <section class="center-column" aria-labelledby="commandTitle">
+      <div class="center-heading">
+        <div><div class="eyebrow"><span class="eyebrow-line"></span> PERSONAL AI COMMAND CENTER</div><h2 id="commandTitle">Un monde d’idées, à portée de voix<span class="title-period">.</span></h2><span id="graphSubheading" class="sr-only"></span></div>
+        <div class="center-tools">
+          <label class="search-box" for="searchInput"><span aria-hidden="true">⌕</span><input id="searchInput" type="search" placeholder="Chercher dans ma mémoire…" autocomplete="off"><kbd>/</kbd></label>
+          <button class="icon-button graph-toggle" id="toggleGraph" type="button" aria-label="Afficher le graphe des notes" aria-pressed="false" title="Afficher le graphe des notes"><span aria-hidden="true">⌘</span><small>NOTES</small></button>
+          <div class="zoom-controls" aria-label="Contrôles de zoom"><button class="icon-button" id="zoomOut" type="button" aria-label="Dézoomer" title="Dézoomer">−</button><button class="icon-button" id="resetView" type="button" aria-label="Réinitialiser la vue" title="Réinitialiser la vue">◎</button><button class="icon-button" id="zoomIn" type="button" aria-label="Zoomer" title="Zoomer">+</button></div>
+        </div>
+      </div>
+
+      <div class="hero-stage" id="galaxyStage">
+        <canvas id="galaxy" role="img" aria-label="Galaxie interactive de vos notes. Faites glisser pour tourner, cliquez sur une étoile pour ouvrir sa source."></canvas>
+        <div class="stage-vignette" aria-hidden="true"></div>
+        <div class="stage-hud stage-hud-left"><span class="hud-label">SECTEUR ACTIF</span><b id="sectorLabel">TOUTES LES NOTES</b></div>
+        <div class="stage-hud stage-hud-right"><span class="orbit-indicator"></span><span id="stageModeLabel">RÉSEAU LOCAL</span></div>
+        <button class="category-node cat-creative" type="button" data-category="CRÉATIVITÉ" data-prompt="Quelles idées créatives ai-je déjà notées ?"><span class="category-orb"><span>◉</span></span><b>CRÉATIVITÉ</b><small>Design · Vidéo · Audio</small></button>
+        <button class="category-node cat-fishing" type="button" data-category="PÊCHE" data-prompt="Quelles informations sur la pêche ai-je enregistrées ?"><span class="category-orb"><span>♧</span></span><b>PÊCHE</b><small>Analyse · Prévisions · Spots</small></button>
+        <button class="category-node cat-projects" type="button" data-category="PROJETS" data-prompt="Quels sont mes projets et prochaines étapes ?"><span class="category-orb"><span>◇</span></span><b>PROJETS</b><small>Développement · Apps · IA</small></button>
+        <button class="category-node cat-analysis" type="button" data-category="ANALYSE" data-prompt="Quelles analyses ou décisions ai-je consignées ?"><span class="category-orb"><span>▥</span></span><b>ANALYSE</b><small>Données · Stratégie</small></button>
+        <button class="category-node cat-training" type="button" data-category="FORMATION" data-prompt="Qu’est-ce que je veux apprendre ou améliorer ?"><span class="category-orb"><span>⌂</span></span><b>FORMATION</b><small>Apprendre · Progresser</small></button>
+        <button class="category-node cat-nature" type="button" data-category="NATURE" data-prompt="Quelles notes ai-je sur la nature et les sorties ?"><span class="category-orb"><span>♧</span></span><b>NATURE</b><small>Météo · Environnement</small></button>
+        <button class="category-node cat-media" type="button" data-category="MÉDIAS" data-prompt="Quelles idées de contenus ou de médias ai-je notées ?"><span class="category-orb"><span>▶</span></span><b>MÉDIAS</b><small>Musique · Livres · News</small></button>
+        <button class="category-node cat-daily" type="button" data-category="QUOTIDIEN" data-prompt="Quelles tâches ou rappels ai-je notés ?"><span class="category-orb"><span>▦</span></span><b>QUOTIDIEN</b><small>Organisation · Rappels</small></button>
+
+        <div class="empty-state" id="emptyState" hidden><span class="empty-orb">✳</span><h2>Votre mémoire attend ses premières notes</h2><p>Ajoutez des fichiers Markdown <code>.md</code> dans votre dossier personnel, puis relancez JARVIS.</p></div>
+        <div class="stage-hint" id="stageHint">CHOISISSEZ UN UNIVERS <span>·</span> OU DEMANDEZ À JARVIS</div>
+      </div>
+
+      <div class="graph-footer"><div class="legend" id="legend" aria-label="Groupes de notes"></div><div class="graph-footnote"><span class="mini-pulse"></span><span id="graphStatus">Index local prêt</span></div></div>
+      <section class="source-card" id="sourceCard" aria-live="polite" aria-label="Détail de la note sélectionnée"><div class="source-empty" id="sourceEmpty"><span class="source-empty-icon">⌘</span><span><b>Vos sources, en un clic</b><small>Sélectionnez une étoile ou demandez à JARVIS.</small></span></div><div class="source-content" id="sourceContent" hidden></div></section>
+    </section>
+
+    <aside class="right-column" aria-label="Agents et assistant">
+      <section class="glass-card agents-card">
+        <div class="card-heading"><div><div class="eyebrow">ÉQUIPE JARVIS</div><h2>Agents disponibles</h2></div><span class="agents-count">8 <i>PROFILS</i></span></div>
+        <div class="demo-note" id="agentLiveNote">MÉTÉO EN COURS DE CONNEXION · 7 PROFILS EN DÉMO</div>
+        <div class="agent-list">
+          <button class="agent-row" type="button" data-prompt="Quelles notes concernent les spots de pêche ?"><span class="agent-status status-green"></span><span class="agent-avatar avatar-fish">♧</span><span class="agent-copy"><b>Pêche Specialist</b><small>Analyse des zones · Brochet</small></span><span class="agent-state">DÉMO</span></button>
+          <button class="agent-row" type="button" data-prompt="Donne-moi la météo actuelle à Sanguinet."><span class="agent-status status-cyan" id="weatherAgentDot"></span><span class="agent-avatar avatar-weather">☼</span><span class="agent-copy"><b>Météo &amp; Conditions</b><small>Open-Meteo · Sanguinet</small></span><span class="agent-state" id="weatherAgentState">DÉMO</span></button>
+          <button class="agent-row" type="button" data-prompt="Quelles notes parlent de leurres ou de matériel ?"><span class="agent-status status-cyan"></span><span class="agent-avatar avatar-lure">◈</span><span class="agent-copy"><b>Lure Expert</b><small>Leurres · Techniques · Tactiques</small></span><span class="agent-state">DÉMO</span></button>
+          <button class="agent-row" type="button" data-prompt="Quelles notes ai-je sur les poissons et les comportements ?"><span class="agent-status status-slate"></span><span class="agent-avatar avatar-finder">⌖</span><span class="agent-copy"><b>Fish Finder</b><small>Espèces · Comportements</small></span><span class="agent-state">DÉMO</span></button>
+          <button class="agent-row" type="button" data-prompt="Quelles idées de photos ou vidéos ai-je consignées ?"><span class="agent-status status-amber"></span><span class="agent-avatar avatar-media">◉</span><span class="agent-copy"><b>Création Média</b><small>Image · Vidéo · Audio</small></span><span class="agent-state">DÉMO</span></button>
+          <button class="agent-row" type="button" data-prompt="Quels projets de développement ai-je en cours ?"><span class="agent-status status-green"></span><span class="agent-avatar avatar-dev">⌘</span><span class="agent-copy"><b>Développeur</b><small>Apps · Automatisation</small></span><span class="agent-state">DÉMO</span></button>
+          <button class="agent-row" type="button" data-prompt="Quelles données ou observations ai-je enregistrées ?"><span class="agent-status status-amber"></span><span class="agent-avatar avatar-data">▥</span><span class="agent-copy"><b>Data Analyst</b><small>Données · Graphes · IA</small></span><span class="agent-state">DÉMO</span></button>
+          <button class="agent-row" type="button" data-prompt="Résume les informations utiles de mes notes."><span class="agent-status status-green"></span><span class="agent-avatar avatar-assistant">✳</span><span class="agent-copy"><b>Assistant Personnel</b><small>Planning · Vie quotidienne</small></span><span class="agent-state">LOCAL</span></button>
+        </div>
+      </section>
+
+      <section class="glass-card recommendations-card">
+        <div class="card-heading"><div><div class="eyebrow">À DÉCOUVRIR</div><h2>Suggestions</h2></div><span class="demo-tag">DÉMO</span></div>
+        <button class="recommendation-row" type="button" data-prompt="Quelles notes ai-je sur les spots autour du lac de Sanguinet ?"><span class="recommendation-thumb thumb-lake"><i>⌖</i></span><span><b>Spot · Lac de Sanguinet</b><small>Exemple de suggestion · données fictives</small></span><span class="chevron">›</span></button>
+        <button class="recommendation-row" type="button" data-prompt="Quelles techniques de leurre ai-je notées ?"><span class="recommendation-thumb thumb-lure"><i>◈</i></span><span><b>Leurre conseillé</b><small>Fiche de démonstration · sans conseil réel</small></span><span class="chevron">›</span></button>
+        <button class="recommendation-row" type="button" data-prompt="Quelles idées de vidéo ai-je notées ?"><span class="recommendation-thumb thumb-video"><i>▶</i></span><span><b>Vidéo · techniques de pêche</b><small>Idée de contenu · niveau intermédiaire</small></span><span class="chevron">›</span></button>
+      </section>
+
+      <aside class="assistant-panel glass-card" aria-labelledby="assistantTitle">
+        <div class="assistant-heading">
+          <div class="assistant-avatar" aria-hidden="true"><span></span></div>
+          <div class="assistant-title-wrap"><div class="eyebrow">VOTRE ASSISTANT</div><h2 id="assistantTitle">À votre service<span class="title-period">.</span></h2><div class="assistant-state"><span class="tiny-dot"></span><span id="brainLabel">MODE LOCAL</span><span class="state-separator">·</span><span id="modelLabel">PRÊT</span></div></div>
+          <button class="voice-toggle" id="voiceToggle" type="button" aria-pressed="false" title="Activer la voix et l’animation de JARVIS"><span aria-hidden="true">◖</span><span id="voiceToggleLabel">VOIX OFF</span></button>
+        </div>
+        <div class="chat-scroll" id="chatMessages" role="log" aria-live="polite" aria-relevant="additions text"></div>
+        <div class="thinking-line" id="thinkingLine" hidden><span class="thinking-bars"><i></i><i></i><i></i></span><span id="thinkingText">JARVIS réfléchit…</span></div>
+        <div class="quick-prompts" id="quickPrompts" aria-label="Suggestions de questions"><span class="quick-label">POUR COMMENCER</span><div class="quick-list"><button type="button" data-prompt="Résume les notes disponibles.">Résume mes notes</button><button type="button" data-prompt="Que faut-il vérifier avant une sortie de pêche ?">Tester une note</button></div></div>
+        <form class="composer" id="chatForm"><label class="sr-only" for="questionInput">Votre message à JARVIS</label><textarea id="questionInput" rows="1" maxlength="4000" placeholder="Demandez à JARVIS…" autocomplete="off"></textarea><div class="composer-bottom"><div class="composer-hint"><span class="lock-icon" aria-hidden="true">◇</span><span id="privacyHint">Vos notes restent sur cet appareil</span></div><div class="composer-actions"><button class="mic-button" id="micButton" type="button" aria-label="Dicter un message" title="Dicter un message"><span aria-hidden="true">♬</span></button><button class="send-button" id="sendButton" type="submit" aria-label="Envoyer" title="Envoyer"><span>ENVOYER</span><b aria-hidden="true">↑</b></button></div></div></form>
+        <div class="assistant-foot"><span>JARVIS <span class="foot-separator">/</span> SECOND CERVEAU</span><span id="buildLabel">LOCAL FIRST</span></div>
+      </aside>
+    </aside>
+  </main>
+
+  <dialog class="help-dialog" id="helpDialog"><div class="dialog-head"><div><div class="eyebrow">PRISE EN MAIN</div><h2>Votre JARVIS, en privé.</h2></div><button class="icon-button" id="closeHelp" type="button" aria-label="Fermer">×</button></div><p>La constellation des notes s’affiche en orbite autour de l’hologramme de JARVIS, sans recouvrir son visage. La météo tente une connexion en direct à Open-Meteo pour Sanguinet; seules les coordonnées de la ville sont transmises. Les autres profils d’agents et les recommandations restent des exemples.</p><div class="help-steps"><div><span>01</span><p><b>Vos notes</b><small>Configurez le dossier de fichiers <code>.md</code> dans <code>config.json</code>. Les 25 notes livrées sont fictives.</small></p></div><div><span>02</span><p><b>Le cerveau IA</b><small>Ajoutez votre clé Anthropic localement dans <code>config.json</code>. Sans clé, la recherche locale reste disponible.</small></p></div><div><span>03</span><p><b>La voix</b><small>Activez la voix pour entendre JARVIS et voir son hologramme s’éclairer pendant la lecture; la dictée fonctionne avec Chrome ou Edge.</small></p></div></div><p class="help-note">Source météo : <a href="https://open-meteo.com/" target="_blank" rel="noopener noreferrer">Open-Meteo.com</a> (requête envoyée depuis le serveur, coordonnées fixes de Sanguinet). Avec une clé Anthropic, seuls les extraits de notes pertinents sont envoyés au modèle par le serveur; la clé ne quitte jamais le serveur.</p></dialog>
+</body>
+</html>
