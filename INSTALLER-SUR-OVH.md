@@ -39,8 +39,11 @@ Le script pose **une seule question** — trois valeurs à coller, une par ligne
 
 | Ce qu'il demande | Quoi répondre |
 |---|---|
-| `ID client` | `1005904286480-nqdal16846ed5m9j1jmn9t6s8bs31hfqn.apps.googleusercontent.com` |
-| `Code secret` | le code qui commence par `GOCSPX-` (dans `config.json` sur l'ordinateur, ou dans la capture Google) |
+| `ID client` | ton ID client Google — celui qui finit par `apps.googleusercontent.com` (dans `config.json`, ou dans le message privé) |
+| `Code secret` | le code qui commence par `GOCSPX-` (même endroit) |
+
+> Ces deux valeurs ne sont **pas** écrites ici : ce dépôt est public. Ne les colle
+> dans aucun fichier versionné.
 | `Ton adresse Gmail` | `funk.e.lee@gmail.com` |
 
 Ensuite il installe tout seul : Python, Caddy (le certificat HTTPS), le service qui redémarre JARVIS en cas de coupure, et le pare-feu. Comptez 2 à 3 minutes.

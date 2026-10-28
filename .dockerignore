@@ -1,0 +1,10 @@
+# Rien de secret ni d'inutile ne doit entrer dans l'image.
+.git
+.gitignore
+config.json
+access.json
+__pycache__/
+*.pyc
+notes/
+JARVIS-app.zip
+*.md.bak

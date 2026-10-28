@@ -1,0 +1,31 @@
+# Déploiement en un clic sur Render (https://render.com).
+# Le service construit le Dockerfile du dépôt et garde access.json sur un disque.
+services:
+  - type: web
+    name: jarvis
+    runtime: docker
+    plan: starter
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /api/session
+    disk:
+      name: jarvis-data
+      mountPath: /data
+      sizeGB: 1
+    envVars:
+      # À renseigner dans le tableau de bord Render (Environment).
+      - key: JARVIS_GOOGLE_CLIENT_ID
+        sync: false
+      - key: JARVIS_GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: JARVIS_ALLOWED_EMAILS
+        sync: false
+      - key: JARVIS_ADMIN_EMAIL
+        sync: false
+      # Adresse publique du service, par exemple https://jarvis-xxxx.onrender.com
+      - key: JARVIS_PUBLIC_URL
+        sync: false
+      - key: JARVIS_ACCESS_PATH
+        value: /data/access.json
+      - key: JARVIS_HOST
+        value: 0.0.0.0
+      # PORT n'est pas fixé ici : Render l'injecte lui-même, server.py le lit.

@@ -1,5 +1,7 @@
 # JARVIS — votre second cerveau
 
+> **Pas de serveur, pas de terminal ?** Suivre `DEPLOY-RAPIDE.md` : mise en ligne en cliquant, chez un hébergeur (Render), avec la connexion Google.
+
 Un assistant personnel **local-first** inspiré du *JARVIS Prompt Pack* et de la maquette fournie : hologramme central de JARVIS, cockpit de briefing, profils d'agents et suggestions de démonstration. Il transforme aussi des notes Markdown en galaxie de connaissances, répond à des questions à partir de ces notes, peut parler et retenir de nouveaux souvenirs.
 
 ## Démarrage rapide

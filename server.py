@@ -81,7 +81,8 @@ def _auth_from_config() -> auth_module.GoogleAuth:
     )
 
 
-ACCESS_PATH = ROOT / "access.json"
+# La liste des accès peut vivre ailleurs (disque persistant d'un hébergeur).
+ACCESS_PATH = Path(os.environ.get("JARVIS_ACCESS_PATH") or (ROOT / "access.json"))
 ACCESS = access_module.AccessList(ACCESS_PATH)
 
 
