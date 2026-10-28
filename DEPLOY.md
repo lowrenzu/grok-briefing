@@ -6,9 +6,34 @@ Trois façons de le mettre en ligne, de la plus simple à la plus « serveur ».
 
 ---
 
+## ⚡ Installation automatique (une commande)
+
+Sur un VPS Debian/Ubuntu neuf, placez le dossier JARVIS sur la machine puis :
+
+```bash
+sudo bash install.sh
+```
+
+Le script, rejouable sans risque, s'occupe de tout :
+
+- installe Python, **Caddy** (certificat HTTPS automatique) et un pare-feu limité à 22/80/443 ;
+- crée un utilisateur système `jarvis` et copie le programme dans `/opt/jarvis` ;
+- demande une seule fois l'**ID client**, le **code secret** et l'adresse **administrateur**, puis écrit `config.json` en droits `600` ;
+- installe le service `jarvis` (redémarrage automatique, JARVIS n'écoute qu'en `127.0.0.1`) ;
+- configure Caddy en frontal pour `jarvis.gabrielleorpel.com` (ou `JARVIS_DOMAIN=...`).
+
+```bash
+sudo JARVIS_DOMAIN=jarvis.exemple.fr bash install.sh   # autre domaine
+journalctl -u jarvis -f                                # journaux
+systemctl restart jarvis                               # redémarrage
+sudo bash install.sh                                   # mise à jour
+```
+
+Ensuite, deux gestes manuels restent : l'entrée DNS `A` et l'adresse de retour Google (`https://VOTRE-DOMAINE/auth/callback`). Le script les rappelle à la fin.
+
 ## ⚠️ À lire avant tout
 
-JARVIS **n'a pas de mot de passe**. Si vous ouvrez le port sur Internet sans protection, n'importe qui peut lire vos notes et discuter avec votre assistant. Les trois méthodes ci-dessous règlent ce problème ; ne vous contentez jamais d'un `JARVIS_HOST=0.0.0.0` exposé directement.
+JARVIS n'a **pas de mot de passe** : l'identité passe par **Google** (section « Connexion Google obligatoire »). Si vous ouvrez le port sur Internet sans configurer Google, n'importe qui peut lire vos notes et discuter avec votre assistant. Ne vous contentez jamais d'un `JARVIS_HOST=0.0.0.0` exposé directement : sans identifiants Google, le serveur vous le signale au démarrage.
 
 Autre point : la clé API et vos notes vivent **sur la machine qui fait tourner le serveur**. Si c'est un serveur distant, elles y sont stockées — c'est vous qui devez en garder la maîtrise (sauvegardes, accès SSH par clé).
 
