@@ -28,7 +28,7 @@ Exemple :
 }
 ```
 
-Le portrait (`viewer/assets/jarvis-hologram.png`) et les deux halos (`jarvis-eyes-glow.png`, `jarvis-voice-glow.png`) partagent le même cadre 1376×768 : ils restent alignés quel que soit l’écran. Les halos peuvent être régénérés avec `python3 tools/build-hologram-lights.py` (Pillow et numpy requis, uniquement pour cette commande).
+Le cœur est composé de quatre calques PNG transparents dans `viewer/assets/` : couronne d’acier (`jarvis-core-ring.png`), anneau de verre strié (`jarvis-core-veil.png`), disque HUD cyan (`jarvis-core-disc.png`) et orbe lumineuse (`jarvis-core-light.png`). L’interface reproduit la géométrie « cover » du décor pour que l’ensemble reste posé au-dessus du projecteur du cockpit. Les calques se régénèrent avec `python3 tools/build-jarvis-core.py` (Pillow et numpy requis, uniquement pour cette commande) ; les images sources sont dans `tools/sources/`.
 
 `config.json`, les captures créées par JARVIS et l'index de notes généré sont ignorés par Git. **Ne mettez pas vos notes privées dans le dépôt.** Les captures créées par « Souviens-toi que… » sont enregistrées dans `captures/` à l'intérieur de votre dossier de notes.
 
@@ -43,7 +43,7 @@ Quand une clé est configurée, le serveur envoie à Anthropic la question et le
 - Faire glisser la galaxie pour l'explorer, zoomer et cliquer sur une étoile pour lire sa note.
 - Demander « Résume mes notes » ou rechercher une idée dans la barre en haut.
 - Demander « Quelle météo à Sanguinet ? » pour interroger Open-Meteo; la météo est récupérée côté serveur et mise en cache dix minutes.
-- Activer la lecture vocale : le buste de JARVIS s’illumine par vagues, ses yeux s’allument, la lumière de sa bouche suit les syllabes et un fin balayage traverse son visage. Le bouton micro permet aussi la dictée (Chrome/Edge).
+- Activer la lecture vocale : le cœur de JARVIS s’anime — quatre anneaux concentriques qui tournent à des vitesses différentes, disque et orbe qui s’éclairent au rythme des syllabes. Le bouton micro permet aussi la dictée (Chrome/Edge).
 - Écrire ou dicter : « **Souviens-toi que…** » pour créer une vraie note et l'ajouter immédiatement à la galaxie.
 
 Les liens du graphe sont détectés quand une note mentionne le titre d'une autre ou partage des liens `[[wikilinks]]`. Les notes sont indexées localement au démarrage; relancez le serveur après avoir ajouté ou modifié des fichiers.

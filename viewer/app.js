@@ -17,8 +17,11 @@
   const sourceContent = $("#sourceContent");
   const helpDialog = $("#helpDialog");
   const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  const hologram = $(".jarvis-hologram");
-  const voiceLayer = $(".jarvis-hologram-voice");
+  const coreFrame = $("#jarvisCoreFrame");
+  const core = $("#jarvisCore");
+  // Géométrie du décor : le cœur doit rester posé au-dessus du projecteur, quelle que
+  // soit la taille de la fenêtre. Ces valeurs sont celles de command-room.jpg.
+  const BACKDROP = { width: 1376, height: 768, coreX: 688, coreY: 332, coreSize: 380 };
 
   let graph = window.JARVIS_GRAPH && Array.isArray(window.JARVIS_GRAPH.nodes)
     ? window.JARVIS_GRAPH
@@ -97,6 +100,19 @@
     canvas.width = Math.round(width * pixelRatio);
     canvas.height = Math.round(height * pixelRatio);
     context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+  }
+
+  function layoutJarvisCore() {
+    if (!coreFrame || !core) return;
+    // `background-size: cover` : le décor est agrandi du plus grand des deux rapports,
+    // puis centré. On applique la même transformation au cadre du cœur.
+    const scale = Math.max(window.innerWidth / BACKDROP.width, window.innerHeight / BACKDROP.height);
+    const diameter = Math.max(250, Math.min(560, BACKDROP.coreSize * scale));
+    coreFrame.style.setProperty("--frame-width", `${BACKDROP.width * scale}px`);
+    coreFrame.style.setProperty("--frame-height", `${BACKDROP.height * scale}px`);
+    core.style.setProperty("--core-x", `${BACKDROP.coreX * scale}px`);
+    core.style.setProperty("--core-y", `${BACKDROP.coreY * scale}px`);
+    core.style.setProperty("--core-size", `${diameter}px`);
   }
 
   function makePosition(index, total) {
@@ -886,8 +902,7 @@
     const label = $("#stageModeLabel");
     if (label) label.textContent = isSpeaking ? "JARVIS PARLE" : "RÉSEAU LOCAL";
     if (!isSpeaking) {
-      hologram?.classList.remove("voice-synced");
-      if (voiceLayer) voiceLayer.style.removeProperty("opacity");
+      if (core) core.style.setProperty("--jarvis-voice", "0");
       boundaryCount = 0;
       window.clearTimeout(boundaryTimer);
       boundaryTimer = null;
@@ -935,15 +950,16 @@
   }
 
   function pulseVoiceGlow() {
-    if (!voiceLayer) return;
+    if (!core) return;
     boundaryCount += 1;
-    if (boundaryCount === 2 && hologram) hologram.classList.add("voice-synced");
-    const energy = .28 + Math.random() * .52;
+    // Chaque syllabe relance l'éclat du disque et de l'orbe ; le retour au calme est
+    // légèrement aléatoire pour éviter un métronome visible.
+    const energy = .55 + Math.random() * .45;
     window.clearTimeout(boundaryTimer);
-    voiceLayer.style.opacity = energy.toFixed(2);
+    core.style.setProperty("--jarvis-voice", energy.toFixed(2));
     boundaryTimer = window.setTimeout(() => {
-      if (voiceLayer) voiceLayer.style.opacity = ".14";
-    }, 96 + Math.random() * 90);
+      if (core) core.style.setProperty("--jarvis-voice", ".12");
+    }, 95 + Math.random() * 85);
   }
 
   function stopSpeechVisuals(token) {
@@ -1265,6 +1281,7 @@
   createStars();
   wireEvents();
   resizeCanvas();
+  layoutJarvisCore();
   updateClock();
   window.setInterval(updateClock, 60_000);
   greet();
@@ -1273,5 +1290,7 @@
   window.setInterval(loadWeather, 10 * 60 * 1000);
   if ("ResizeObserver" in window) new ResizeObserver(resizeCanvas).observe(stage);
   else window.addEventListener("resize", resizeCanvas);
+  window.addEventListener("resize", layoutJarvisCore);
+  window.addEventListener("orientationchange", () => window.setTimeout(layoutJarvisCore, 120));
   window.requestAnimationFrame(frame);
 })();

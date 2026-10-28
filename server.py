@@ -505,9 +505,10 @@ class JarvisHandler(BaseHTTPRequestHandler):
             "/app.js": ROOT / "viewer" / "app.js",
             "/graph-data.js": ROOT / "viewer" / "graph-data.js",
             "/assets/command-room.jpg": ROOT / "viewer" / "assets" / "command-room.jpg",
-            "/assets/jarvis-hologram.png": ROOT / "viewer" / "assets" / "jarvis-hologram.png",
-            "/assets/jarvis-eyes-glow.png": ROOT / "viewer" / "assets" / "jarvis-eyes-glow.png",
-            "/assets/jarvis-voice-glow.png": ROOT / "viewer" / "assets" / "jarvis-voice-glow.png",
+            "/assets/jarvis-core-ring.png": ROOT / "viewer" / "assets" / "jarvis-core-ring.png",
+            "/assets/jarvis-core-veil.png": ROOT / "viewer" / "assets" / "jarvis-core-veil.png",
+            "/assets/jarvis-core-disc.png": ROOT / "viewer" / "assets" / "jarvis-core-disc.png",
+            "/assets/jarvis-core-light.png": ROOT / "viewer" / "assets" / "jarvis-core-light.png",
         }
         asset = assets.get(path)
         if asset is None:

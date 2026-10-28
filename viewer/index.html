@@ -12,11 +12,16 @@
 </head>
 <body>
   <div class="screen-shade" aria-hidden="true"></div>
-  <div class="jarvis-hologram" aria-hidden="true">
-    <img class="jarvis-hologram-layer jarvis-hologram-portrait" src="/assets/jarvis-hologram.png" alt="" decoding="async" fetchpriority="high">
-    <img class="jarvis-hologram-layer jarvis-hologram-eyes" src="/assets/jarvis-eyes-glow.png" alt="" decoding="async">
-    <img class="jarvis-hologram-layer jarvis-hologram-voice" src="/assets/jarvis-voice-glow.png" alt="" decoding="async">
-    <span class="jarvis-hologram-layer jarvis-hologram-scan"></span>
+  <div class="jarvis-core-frame" id="jarvisCoreFrame" aria-hidden="true">
+    <div class="jarvis-core" id="jarvisCore">
+      <span class="jarvis-core-halo"></span>
+      <span class="jarvis-core-layer core-ring"><img src="/assets/jarvis-core-ring.png" alt="" decoding="async" fetchpriority="high"></span>
+      <span class="jarvis-core-layer core-veil"><img src="/assets/jarvis-core-veil.png" alt="" decoding="async"></span>
+      <span class="jarvis-core-layer core-disc"><img src="/assets/jarvis-core-disc.png" alt="" decoding="async"></span>
+      <span class="jarvis-core-layer core-light"><img src="/assets/jarvis-core-light.png" alt="" decoding="async"></span>
+      <span class="jarvis-core-beam" aria-hidden="true"></span>
+      <span class="jarvis-core-base" aria-hidden="true"></span>
+    </div>
   </div>
   <header class="command-topbar">
     <a class="brand" href="/" aria-label="JARVIS, accueil">

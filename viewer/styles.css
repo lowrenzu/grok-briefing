@@ -27,35 +27,42 @@ button, input, textarea { font: inherit; }
 button { color: inherit; }
 button:focus-visible, input:focus-visible, textarea:focus-visible, a:focus-visible { outline: 2px solid var(--cyan); outline-offset: 3px; }
 .screen-shade { position: fixed; inset: 0; z-index: 0; pointer-events: none; background: radial-gradient(ellipse at 50% 45%, transparent 20%, rgba(2,6,10,.2) 78%), linear-gradient(180deg, rgba(1,5,9,.27), rgba(2,5,9,.04) 35%, rgba(2,5,9,.36)); }
-/* Hologramme : un portrait et deux halos lumineux qui partagent le même cadre que le décor.
-   Toutes les animations n'utilisent que opacity/transform : aucun filtre plein écran
-   recalculé à chaque image, donc pas de saccade derrière les cartes en verre. */
-.jarvis-hologram { position: fixed; inset: 0; z-index: 0; pointer-events: none; transform: translateZ(0); }
-.jarvis-hologram-layer { position: absolute; inset: 0; display: block; width: 100%; height: 100%; object-fit: cover; object-position: center center; pointer-events: none; mix-blend-mode: screen; }
-.jarvis-hologram-portrait { opacity: .55; transform-origin: 50% 62%; animation: jarvis-idle-breathe 7.5s ease-in-out infinite; transition: opacity .45s ease; }
-.jarvis-hologram-eyes, .jarvis-hologram-voice { opacity: 0; transition: opacity .3s ease; }
-.jarvis-hologram-scan { opacity: 0; background: none; -webkit-mask-image: url("/assets/jarvis-hologram.png"); mask-image: url("/assets/jarvis-hologram.png"); -webkit-mask-size: cover; mask-size: cover; -webkit-mask-position: center center; mask-position: center center; -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat; transition: opacity .4s ease; }
-.jarvis-hologram-scan::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 9%; background: linear-gradient(180deg, transparent, rgba(150,244,255,.16) 30%, rgba(206,252,255,.92) 52%, rgba(150,244,255,.16) 74%, transparent); transform: translate3d(0, -32%, 0); will-change: transform; }
-@keyframes jarvis-idle-breathe { 0%, 100% { opacity: .52; transform: translate3d(0, 0, 0) scale(1); } 50% { opacity: .6; transform: translate3d(0, -2px, 0) scale(1.003); } }
+/* Cœur holographique de JARVIS : quatre anneaux concentriques superposés au-dessus du
+   projecteur du cockpit. Le cadre reproduit exactement la géométrie « cover » du décor :
+   JavaScript lui donne ses dimensions en pixels, les anneaux restent donc alignés sur la
+   table quelle que soit la taille de la fenêtre.
+   Toutes les animations n'utilisent que transform/opacity : aucun filtre plein écran,
+   donc aucune saccade derrière les cartes en verre. */
+.jarvis-core-frame { position: fixed; z-index: 0; left: 50%; top: 50%; width: var(--frame-width, 1376px); height: var(--frame-height, 768px); transform: translate(-50%, -50%); pointer-events: none; }
+.jarvis-core { position: absolute; left: var(--core-x, 688px); top: var(--core-y, 332px); width: var(--core-size, 380px); height: var(--core-size, 380px); margin: calc(var(--core-size, 380px) / -2) 0 0 calc(var(--core-size, 380px) / -2); transform: perspective(1400px) rotateX(9deg); transform-style: preserve-3d; --jarvis-voice: 0; }
+.jarvis-core-layer { position: absolute; inset: 0; display: grid; place-items: center; pointer-events: none; }
+.jarvis-core-layer img { display: block; width: 100%; height: 100%; object-fit: contain; user-select: none; -webkit-user-drag: none; }
+.core-ring { opacity: .6; transition: opacity .45s ease; }
+.core-ring img { animation: jarvis-core-spin 96s linear infinite; }
+.core-veil { opacity: .7; transition: opacity .45s ease; }
+.core-veil img { width: 87%; height: 87%; animation: jarvis-core-spin-reverse 64s linear infinite; }
+.core-disc { opacity: calc(.56 + .3 * var(--jarvis-voice)); transition: opacity .12s ease-out; }
+.core-disc img { width: 75%; height: 75%; mix-blend-mode: screen; animation: jarvis-core-spin 30s linear infinite; }
+.core-light { opacity: calc(.62 + .34 * var(--jarvis-voice)); transition: opacity .12s ease-out; }
+.core-light img { width: 55%; height: 55%; mix-blend-mode: screen; animation: jarvis-core-pulse 3.8s ease-in-out infinite; }
+.jarvis-core-halo { position: absolute; inset: -14%; border-radius: 50%; background: radial-gradient(circle, rgba(78,214,255,.20), rgba(44,164,224,.07) 46%, transparent 70%); animation: jarvis-core-breathe 6.4s ease-in-out infinite; }
+.jarvis-core-beam { position: absolute; left: 50%; top: 62%; width: 46%; height: 62%; margin-left: -23%; transform: perspective(320px) rotateX(38deg); transform-origin: 50% 0; background: linear-gradient(180deg, rgba(120,235,255,.30), rgba(64,190,240,.10) 46%, transparent 86%); filter: blur(6px); opacity: .5; }
+.jarvis-core-base { position: absolute; left: 50%; top: 96%; width: 62%; height: 13%; margin-left: -31%; border-radius: 50%; background: radial-gradient(ellipse at center, rgba(96,226,255,.5), rgba(40,150,215,.14) 55%, transparent 78%); opacity: .55; }
+@keyframes jarvis-core-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+@keyframes jarvis-core-spin-reverse { from { transform: rotate(360deg); } to { transform: rotate(0deg); } }
+@keyframes jarvis-core-pulse { 0%, 100% { transform: scale(.97); } 50% { transform: scale(1.045); } }
+@keyframes jarvis-core-breathe { 0%, 100% { opacity: .55; transform: scale(.99); } 50% { opacity: .85; transform: scale(1.02); } }
 
-/* Parole : le buste s'illumine par vagues, les yeux s'allument, la lumière de la bouche
-   suit le rythme des syllabes et un fin balayage traverse le visage. */
-body.jarvis-speaking .jarvis-hologram-portrait { animation: jarvis-speak-breathe 3.4s ease-in-out infinite; will-change: opacity, transform; }
-body.jarvis-speaking .jarvis-hologram-eyes { animation: jarvis-eyes-flicker 2.4s ease-in-out infinite; }
-body.jarvis-speaking .jarvis-hologram-voice { animation: jarvis-voice-rhythm 1.15s ease-in-out infinite; }
-body.jarvis-speaking .jarvis-hologram-scan { animation: jarvis-scan-fade 3.8s ease-in-out infinite; }
-body.jarvis-speaking .jarvis-hologram-scan::before { animation: jarvis-scan-travel 3.8s cubic-bezier(.48, .03, .52, .97) infinite; }
-.jarvis-hologram.voice-synced .jarvis-hologram-voice { animation: none !important; transition: opacity .1s ease-out; }
-@keyframes jarvis-speak-breathe {
-  0%, 100% { opacity: .58; transform: translate3d(0, 0, 0) scale(1); }
-  26% { opacity: .74; transform: translate3d(0, -3px, 0) scale(1.01); }
-  46% { opacity: .66; transform: translate3d(0, -1px, 0) scale(1.004); }
-  72% { opacity: .79; transform: translate3d(0, -4px, 0) scale(1.013); }
-}
-@keyframes jarvis-eyes-flicker { 0%, 100% { opacity: .45; } 16% { opacity: .95; } 38% { opacity: .62; } 58% { opacity: 1; } 78% { opacity: .72; } }
-@keyframes jarvis-voice-rhythm { 0%, 100% { opacity: .12; } 20% { opacity: .62; } 38% { opacity: .28; } 61% { opacity: .74; } 80% { opacity: .34; } }
-@keyframes jarvis-scan-fade { 0% { opacity: 0; } 12% { opacity: .75; } 58% { opacity: .6; } 68%, 100% { opacity: 0; } }
-@keyframes jarvis-scan-travel { 0% { transform: translate3d(0, -32%, 0); } 68%, 100% { transform: translate3d(0, 1000%, 0); } }
+/* Parole : les anneaux accélèrent et s'éclairent, l'orbe bat plus vite. */
+body.jarvis-speaking .core-ring { opacity: .88; }
+body.jarvis-speaking .core-veil { opacity: .95; }
+body.jarvis-speaking .core-ring img { animation-duration: 34s; }
+body.jarvis-speaking .core-veil img { animation-duration: 22s; }
+body.jarvis-speaking .core-disc img { animation-duration: 11s; }
+body.jarvis-speaking .core-light img { animation-duration: 1.6s; }
+body.jarvis-speaking .jarvis-core-halo { animation-duration: 1.9s; }
+body.jarvis-speaking .jarvis-core-base { opacity: .9; }
+body.jarvis-speaking .jarvis-core-beam { opacity: .8; }
 
 .command-topbar {  position: relative; z-index: 10; display: flex; align-items: center; justify-content: space-between; gap: 16px; height: 62px; padding: 0 clamp(16px, 2.4vw, 36px); border-bottom: 1px solid rgba(153,205,229,.14); background: rgba(4,10,16,.58); backdrop-filter: blur(18px); }
 .brand { display: inline-flex; align-items: center; gap: 10px; min-width: 230px; color: var(--text); text-decoration: none; }
@@ -389,7 +396,6 @@ button:hover .chevron { color: var(--cyan); transform: translateX(2px); }
 }
 @media (max-width: 680px) {
   body { background-position: center; }
-  .jarvis-hologram { position: absolute; top: 0; left: 0; width: 100%; height: 100vh; }
   .command-topbar { height: 54px; padding-inline: 10px; gap: 8px; }
   .brand { min-width: 0; gap: 7px; }.brand-mark { width: 27px; height: 27px; }.brand-word { font-size: 10px; }.brand-word small { font-size: 6px; }
   .topbar-center { display: none; }.topbar-right { min-width: 0; gap: 11px; }.top-stat { gap: 4px; }.top-stat b { font-size: 10px; }.top-stat small { font-size: 6px; }.stat-icon { font-size: 13px; }
@@ -418,9 +424,7 @@ button:hover .chevron { color: var(--cyan); transform: translateX(2px); }
 }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; }
-  .jarvis-hologram-portrait { animation: none !important; opacity: .55; }
-  body.jarvis-speaking .jarvis-hologram-portrait { opacity: .78; }
-  body.jarvis-speaking .jarvis-hologram-eyes { opacity: .8; animation: none !important; }
-  body.jarvis-speaking .jarvis-hologram-voice { opacity: .45; animation: none !important; }
-  .jarvis-hologram-scan, .jarvis-hologram-scan::before { display: none; }
+  .jarvis-core-layer img, .jarvis-core-halo, .jarvis-core-beam { animation: none !important; }
+  body.jarvis-speaking .core-ring { opacity: .88; }
+  body.jarvis-speaking .core-veil { opacity: .95; }
 }
