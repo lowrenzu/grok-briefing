@@ -28,7 +28,7 @@ Exemple :
 }
 ```
 
-Le cœur est composé de quatre calques PNG transparents dans `viewer/assets/`, assemblés du plus grand au plus petit comme la planche éclatée de référence : couronne d’acier (`jarvis-core-ring.png`), anneau de verre strié (`jarvis-core-veil.png`), disque HUD cyan (`jarvis-core-disc.png`) et orbe lumineuse (`jarvis-core-light.png`). L’interface reproduit la géométrie « cover » du décor pour que l’ensemble reste posé au-dessus du projecteur du cockpit. Les calques se régénèrent avec `python3 tools/build-jarvis-core.py` (Pillow et numpy requis, uniquement pour cette commande) ; les images sources sont dans `tools/sources/`.
+Le cœur est composé de quatre calques PNG transparents dans `viewer/assets/`, assemblés du plus grand au plus petit comme la planche éclatée de référence : couronne d’acier (`jarvis-core-ring.png`), mécanique interne (`jarvis-core-veil.png`), anneau HUD cyan (`jarvis-core-disc.png`) et œil lumineux (`jarvis-core-light.png`). L’interface reproduit la géométrie « cover » du décor pour que l’ensemble reste posé au-dessus du projecteur du cockpit. Les calques se régénèrent avec `python3 tools/build-jarvis-core.py` (Pillow et numpy requis, uniquement pour cette commande) ; les images sources sont dans `tools/sources/`.
 
 `config.json`, les captures créées par JARVIS et l'index de notes généré sont ignorés par Git. **Ne mettez pas vos notes privées dans le dépôt.** Les captures créées par « Souviens-toi que… » sont enregistrées dans `captures/` à l'intérieur de votre dossier de notes.
 

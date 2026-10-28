@@ -8,3 +8,6 @@
 __pycache__/
 *.py[cod]
 .DS_Store
+
+# Aperçus de contrôle générés localement
+/.preview-*

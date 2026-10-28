@@ -4,14 +4,14 @@
 Ordre d'assemblage (du fond vers l'avant) :
 
 1. `jarvis-core-ring.png`   — couronne d'acier sombre (vue frontale)
-2. `jarvis-core-veil.png`   — anneau de verre strié
-3. `jarvis-core-disc.png`   — disque HUD cyan (perspective redressée)
-4. `jarvis-core-light.png`  — orbe lumineuse centrale
+2. `jarvis-core-veil.png`   — mécanique interne (anneaux et pignons)
+3. `jarvis-core-disc.png`   — anneau HUD cyan
+4. `jarvis-core-light.png`  — œil lumineux central
 
 Chaque calque est un PNG RGBA carré, centré, exporté à `EXPORT` pixels de côté.
-Les sources (`tools/sources/`) sont des images générées sur fond noir ou damier :
-le fond est estimé puis retiré, les traits de repère sont effacés, et les pièces
-vues en perspective sont redressées pour retrouver des cercles.
+Les sources (`tools/sources/`) sont les quatre plaques détachées sur fond blanc :
+chaque pièce est isolée par son écart au blanc, puis recadrée au plus juste pour que
+les quatre calques partagent exactement le même centre.
 
     python3 tools/build-jarvis-core.py             # écrit les quatre calques
     python3 tools/build-jarvis-core.py --preview   # + rendus de contrôle repos/parole
@@ -135,91 +135,90 @@ def measure(alpha: np.ndarray, threshold: float = 0.5) -> tuple[float, float, fl
     return cx, cy, radius
 
 
-def build_crown() -> None:
-    """Couronne d'acier : vue frontale déjà circulaire."""
-    rgb = load("metal-ring.jpg")
+def ink_field(rgb: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Écart au fond blanc des planches : noirceur et couleur, sans le grain JPEG."""
     lum = rgb.max(axis=2)
-    body = smooth(lum, 0.010, 0.050)
-    cx, cy, radius = measure(lum > 0.05)
-    cut_rgb, cut_alpha, cut_lum = crop_circle(rgb, body, cx, cy, radius * 1.01, companion=lum)
-    # Métal sombre : la masse reste presque noire, seules les arêtes chromées s'allument.
-    colour = np.clip(steel(cut_rgb, "#0d141c", "#f2fbff") ** 1.45 * 0.92, 0, 1)
-    colour, cut_alpha = solidify(cut_alpha, colour, "#070d13")
-    save(*to_square(colour, cut_alpha, EXPORT), "jarvis-core-ring.png")
+    sat = rgb.max(axis=2) - rgb.min(axis=2)
+    return np.maximum(1.0 - lum, sat * 0.9), lum, sat
+
+
+def radial_mask(rgb: np.ndarray, alpha: np.ndarray, radius: float) -> np.ndarray:
+    """Masque circulaire normalisé (1 au centre, 0 au bord) sur le rayon mesuré."""
+    cx, cy, _ = measure(alpha, 0.5)
+    yy, xx = np.mgrid[0:rgb.shape[0], 0:rgb.shape[1]]
+    return np.sqrt((xx - cx) ** 2 + (yy - cy) ** 2) / radius
+
+
+def finish(rgb: np.ndarray, alpha: np.ndarray, name: str) -> None:
+    """Recadre au plus juste, remet le carré et exporte."""
+    cx, cy, radius = measure(alpha, 0.5)
+    cut_rgb, cut_alpha, _ = crop_circle(rgb, alpha, cx, cy, radius * 1.02)
+    save(*to_square(cut_rgb, cut_alpha, EXPORT), name)
+
+
+def build_crown() -> None:
+    """Couronne d'acier : anneau extérieur, LED blanches, logement central opaque."""
+    rgb = load("crown.jpg")
+    ink, lum, sat = ink_field(rgb)
+    alpha = smooth(ink, 0.07, 0.20)
+    _, _, radius = measure(alpha, 0.5)
+    distance = radial_mask(rgb, alpha, radius)
+    # Le logement central est comblé : aucune transparence à l'intérieur du rond.
+    hole = 1.0 - smooth(distance, 0.60, 0.64)
+    alpha = np.maximum(alpha, hole)
+    low = np.array([0x07 / 255, 0x0d / 255, 0x13 / 255], dtype=np.float32)
+    blank = (lum > 0.92) & (sat < 0.04)
+    rgb = np.where((blank & (hole > 0.5))[:, :, None], low, rgb)
+    # Métal du logement : volontairement plus sombre que la planche, pour que le cœur
+    # reste un objet noir dans le cockpit et non un dôme gris.
+    rgb = np.clip((np.clip(rgb, 0, 1) ** 1.35) * np.array([0.90, 0.96, 1.0], dtype=np.float32), 0, 1)
+    finish(rgb, feather(alpha, 1.0), "jarvis-core-ring.png")
 
 
 def build_veil() -> None:
-    """Anneau de verre strié, détouré d'un damier gris (pas de halo résiduel)."""
-    rgb = load("glass-ring.jpg")
-    lum, sat = rgb.max(axis=2), rgb.max(axis=2) - rgb.min(axis=2)
-    glass = ((sat > 0.045) | ((lum < 0.55) & (lum > 0.03))).astype(np.float32)
-    solid = np.asarray(
-        Image.fromarray((glass * 255).astype(np.uint8)).filter(ImageFilter.MinFilter(5)),
-        dtype=np.float32,
-    ) / 255.0
-    # La planche contient des repères (traits fins) : on les efface avant de découper.
-    # La planche laisse une large marge noire : on cadre la bande utile en proportion.
-    top, bottom = int(rgb.shape[0] * 0.218), int(rgb.shape[0] * 0.770)
-    solid = despeckle(solid[top:bottom], 9)
-    cx, cy, radius = measure(solid)
-    solid = np.where((sat[top:bottom] < 0.035) & (lum[top:bottom] > 0.70), 0, solid)
-    cut_rgb, cut_alpha, cut_lum = crop_circle(
-        rgb[top:bottom], solid, cx, cy, radius * 1.02, companion=lum[top:bottom]
-    )
-    cut_alpha = cut_alpha * np.clip(cut_lum * 3.4 - 0.12, 0, 1)
-    colour = np.clip(steel(cut_rgb, "#0f1d27", "#dceff9") ** 1.35 * 1.05, 0, 1)
-    colour, cut_alpha = solidify(feather(cut_alpha, 1.0), colour, "#0a141d")
-    save(*to_square(colour, cut_alpha, EXPORT), "jarvis-core-veil.png")
+    """Mécanique interne : anneaux et pignons concentriques, acier sombre."""
+    rgb = load("gears.jpg")
+    ink, _, _ = ink_field(rgb)
+    # Seuil haut : le voile de compression autour des pignons ne doit pas laisser
+    # de brume carrée sur le fond.
+    alpha = smooth(ink, 0.16, 0.34)
+    rgb = np.clip((np.clip(rgb, 0, 1) ** 1.28) * 0.95, 0, 1)
+    finish(rgb, feather(alpha, 0.8), "jarvis-core-veil.png")
 
 
 def build_disc() -> None:
-    """Disque HUD cyan, vu de face : aucune perspective à corriger, aucun métal voisin."""
-    rgb = load("cyan-disc.jpg")
-    lum = rgb.max(axis=2)
-    sat = rgb.max(axis=2) - rgb.min(axis=2)
-    mask = despeckle(smooth(lum, 0.04, 0.18) * np.maximum(smooth(sat, 0.02, 0.10), 0.55), 7)
-    cx, cy, radius = measure(mask, threshold=0.30)
-    cut_rgb, cut_alpha, _ = crop_circle(rgb, mask, cx, cy, radius * 1.0)
-    colour, cut_alpha = solidify(feather(cut_alpha, 1.0), np.clip(cut_rgb * 1.05, 0, 1), "#04121c")
-    save(*to_square(colour, cut_alpha, EXPORT), "jarvis-core-disc.png")
+    """Anneau HUD cyan : la lumière sort du logement, le centre reste ouvert."""
+    rgb = load("hud-ring.jpg")
+    ink, _, _ = ink_field(rgb)
+    alpha = smooth(ink, 0.03, 0.10)
+    finish(np.clip(rgb * 1.04, 0, 1), feather(alpha, 0.9), "jarvis-core-disc.png")
 
 
 def build_light() -> None:
-    """Orbe lumineuse : disque plein, net, dont les rayons suivent la source.
-
-    La source empile un arc d'acier et l'orbe. On repère le centre de l'orbe (cyan
-    saturé), puis on reconstruit un disque parfaitement circulaire : la texture de la
-    source module la couleur, la teinte de comblement occupe les zones sombres.
-    """
-    rgb = load("orb-glow.jpg")
-    lum = rgb.max(axis=2)
-    sat = rgb.max(axis=2) - rgb.min(axis=2)
-    ys, xs = np.where((sat > 0.25) & (lum > 0.35))
-    if not len(xs):
-        raise SystemExit("Orbe centrale introuvable dans orb-glow.jpg")
-    cx, cy = float(xs.mean()), float(ys.mean())
-    radius = 104.0
-    height, width = lum.shape
-    yy, xx = np.mgrid[0:height, 0:width]
-    distance = np.sqrt((xx - cx) ** 2 + (yy - cy) ** 2) / radius
-    disc = 1.0 - smooth(distance, 0.90, 1.0)
-    texture = np.clip(lum * 1.35, 0, 1) ** 0.9
-    low = np.array([0x08 / 255, 0x2a / 255, 0x3d / 255], dtype=np.float32)
-    high = np.array([0.72, 0.95, 1.0], dtype=np.float32)
-    colour = low + (high - low) * feather(texture, 2.0)[:, :, None]
-    # Éclaircissement central : le noyau de l'orbe reste blanc.
-    core = 1.0 - smooth(distance, 0.10, 0.45)
-    colour = np.clip(colour + core[:, :, None] * np.array([0.55, 0.42, 0.30], dtype=np.float32), 0, 1)
-    cut_rgb, cut_alpha, _ = crop_circle(colour, disc, cx, cy, radius)
-    save(*to_square(cut_rgb, feather(cut_alpha, 1.4), EXPORT), "jarvis-core-light.png")
+    """Œil lumineux : le noyau blanc est comblé, le halo reste fondu."""
+    rgb = load("core-eye.jpg")
+    ink, lum, _ = ink_field(rgb)
+    alpha = smooth(ink, 0.02, 0.16)
+    # Le halo blanc de la planche est coupé net au bord du cerclage : sinon il forme
+    # un anneau laiteux autour de l'œil une fois posé sur le logement sombre.
+    bezel = smooth(1.0 - lum, 0.20, 0.42)
+    _, _, radius = measure(alpha, 0.5)
+    bezel_cx, bezel_cy, bezel_r = measure(bezel, 0.5)
+    yy, xx = np.mgrid[0:rgb.shape[0], 0:rgb.shape[1]]
+    bevel = np.sqrt((xx - bezel_cx) ** 2 + (yy - bezel_cy) ** 2) / bezel_r
+    alpha = np.minimum(alpha, 1.0 - smooth(bevel, 0.94, 1.02))
+    distance = np.sqrt((xx - bezel_cx) ** 2 + (yy - bezel_cy) ** 2) / bezel_r
+    # Noyau central : opaque, sinon le blanc laisserait un trou au milieu de l'œil.
+    alpha = np.maximum(alpha, 1.0 - smooth(distance, 0.55, 0.68))
+    finish(np.clip(rgb, 0, 1), feather(alpha, 1.2), "jarvis-core-light.png")
 
 
 LAYERS = (
     # (fichier, part du diamètre extérieur, mode de fusion, opacité repos, opacité parole)
-    ("jarvis-core-ring.png", 1.00, "normal", .90, 1.0),
-    ("jarvis-core-veil.png", .66, "screen", .45, .80),
-    ("jarvis-core-disc.png", .78, "screen", .85, 1.0),
-    ("jarvis-core-light.png", .30, "screen", .88, 1.0),
+    ("jarvis-core-ring.png", 1.00, "normal", .95, 1.0),
+    ("jarvis-core-veil.png", .90, "normal", .9, 1.0),
+    ("jarvis-core-disc.png", .72, "screen", .92, 1.0),
+    ("jarvis-core-light.png", .40, "screen", .95, 1.0),
 )
 
 
