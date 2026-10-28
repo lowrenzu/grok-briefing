@@ -38,9 +38,32 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, a:focus-visib
 .jarvis-core-layer img { display: block; width: 100%; height: 100%; object-fit: contain; user-select: none; -webkit-user-drag: none; }
 .core-ring { opacity: .9; transition: opacity .45s ease; }
 .core-ring img { animation: jarvis-core-spin 96s linear infinite; }
-/* Disque cyan lumineux, posé juste devant le logement métallique. */
-.core-disc { opacity: calc(.62 + .34 * var(--jarvis-voice)); transition: opacity .12s ease-out; }
+/* Anneau HUD cyan : la plaque tourne, et deux balayages lumineux parcourent sa couronne.
+   Les deux balayages sont masqués en anneau (rayon du trou mesuré : 0,378 du demi-côté,
+   bord extérieur 0,97) : la lumière ne déborde donc jamais sur le logement métallique. */
+.core-disc { display: grid; grid-template-columns: 1fr; grid-template-rows: 1fr; opacity: calc(.62 + .34 * var(--jarvis-voice)); transition: opacity .12s ease-out; }
+.core-disc > * { grid-area: 1 / 1; }
 .core-disc img { width: 72%; height: 72%; mix-blend-mode: screen; animation: jarvis-core-spin 30s linear infinite; }
+.core-disc-sweep, .core-disc-spark { display: block; width: 72%; height: 72%; border-radius: 50%; pointer-events: none; mix-blend-mode: screen; will-change: transform; }
+/* Balayage principal : deux secteurs opposés, la couronne s'allume en tournant. */
+.core-disc-sweep {
+  background: conic-gradient(from 0deg,
+    rgba(120,240,255,0) 0 4%, rgba(186,252,255,.70) 14%, rgba(92,222,255,.18) 24% 46%,
+    rgba(120,240,255,0) 55% 60%, rgba(150,246,255,.40) 70%, rgba(80,210,255,.12) 82%,
+    rgba(120,240,255,0) 97% 100%);
+  mask: radial-gradient(circle closest-side, transparent 0 33%, #000 39% 92%, transparent 97%);
+  -webkit-mask: radial-gradient(circle closest-side, transparent 0 33%, #000 39% 92%, transparent 97%);
+  opacity: calc(.42 + .38 * var(--jarvis-voice));
+  animation: jarvis-core-spin 8.5s linear infinite;
+}
+/* Étincelle fine, contre-rotative : elle rend la rotation lisible même au repos. */
+.core-disc-spark {
+  background: conic-gradient(from 180deg, transparent 0 46%, rgba(232,254,255,.9) 50%, transparent 54% 98%, transparent 100%);
+  mask: radial-gradient(circle closest-side, transparent 0 62%, #000 70% 90%, transparent 95%);
+  -webkit-mask: radial-gradient(circle closest-side, transparent 0 62%, #000 70% 90%, transparent 95%);
+  opacity: calc(.24 + .52 * var(--jarvis-voice));
+  animation: jarvis-core-spin-reverse 4.6s ease-in-out infinite;
+}
 /* Verre strié en superposition légère : il donne la profondeur, pas la masse. */
 .core-veil { opacity: .9; transition: opacity .45s ease; }
 .core-veil img { width: 90%; height: 90%; animation: jarvis-core-spin-reverse 64s linear infinite; }
@@ -58,6 +81,8 @@ body.jarvis-speaking .core-veil { opacity: 1; }
 body.jarvis-speaking .core-ring img { animation-duration: 34s; }
 body.jarvis-speaking .core-veil img { animation-duration: 22s; }
 body.jarvis-speaking .core-disc img { animation-duration: 11s; }
+body.jarvis-speaking .core-disc-sweep { animation-duration: 3.2s; }
+body.jarvis-speaking .core-disc-spark { animation-duration: 1.9s; }
 body.jarvis-speaking .core-light img { animation-duration: 1.6s; }
 body.jarvis-speaking .jarvis-core-base { opacity: .9; }
 body.jarvis-speaking .jarvis-core-beam { opacity: .8; }
@@ -462,7 +487,7 @@ button:hover .chevron { color: var(--cyan); transform: translateX(2px); }
 }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; }
-  .jarvis-core-layer img, .jarvis-core-beam { animation: none !important; }
+  .jarvis-core-layer img, .jarvis-core-beam, .core-disc-sweep, .core-disc-spark { animation: none !important; }
   body.jarvis-speaking .core-ring { opacity: 1; }
   body.jarvis-speaking .core-veil { opacity: 1; }
 }
