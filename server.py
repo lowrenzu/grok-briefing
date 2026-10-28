@@ -451,6 +451,22 @@ def capture_memory(text: str) -> dict[str, Any]:
     }
 
 
+def embed_policy() -> tuple[str | None, str]:
+    """Autorise ou non l'affichage de l'interface dans un cadre.
+
+    En usage normal le serveur n'écoute que sur la boucle locale : la page refuse donc
+    d'être encadrée. Sur une écoute exposée (aperçu hébergé), le proxy affiche l'app
+    dans une iframe : on autorise alors les domaines de prévisualisation.
+    """
+    frame_ancestors = os.environ.get("JARVIS_FRAME_ANCESTORS")
+    if frame_ancestors:
+        return None, frame_ancestors
+    host = os.environ.get("JARVIS_HOST", "127.0.0.1")
+    if host in ("127.0.0.1", "localhost", "::1"):
+        return "DENY", "'none'"
+    return None, "'self' https://*.e2b.app https://*.arena.ai"
+
+
 class JarvisHandler(BaseHTTPRequestHandler):
     server_version = "JarvisLocal/1.0"
     sys_version = ""
@@ -546,8 +562,10 @@ class JarvisHandler(BaseHTTPRequestHandler):
             self.send_header("Cache-Control", "public, max-age=31536000, immutable")
         self.send_header("X-Content-Type-Options", "nosniff")
         self.send_header("Referrer-Policy", "same-origin")
-        self.send_header("X-Frame-Options", "DENY")
-        self.send_header("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self'; img-src 'self' data:; font-src 'self'; base-uri 'none'; frame-ancestors 'none'")
+        frame_option, frame_ancestors = embed_policy()
+        if frame_option:
+            self.send_header("X-Frame-Options", frame_option)
+        self.send_header("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self'; img-src 'self' data:; font-src 'self'; base-uri 'none'; frame-ancestors " + frame_ancestors)
         self.end_headers()
         self.wfile.write(body)
 
