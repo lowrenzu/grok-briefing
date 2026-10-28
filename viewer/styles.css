@@ -209,12 +209,12 @@ button:hover .chevron { color: var(--cyan); transform: translateX(2px); }
 .hero-stage {
   --cat-w: 124px;                       /* largeur d'un nœud de catégorie */
   --cat-gap: 26px;                      /* respiration entre le cœur et un orbe */
-  --core-size: min(38vw, 58vh, 340px);   /* repli si les unités de conteneur manquent */
+  --core-size: min(45vw, 62vh, 400px);   /* repli si les unités de conteneur manquent */
   --cat-column: calc(50% - var(--core-size) / 2 - var(--cat-gap) - var(--cat-w));
 }
 @supports (width: 1cqw) {
   .hero-stage {
-    --core-size: clamp(140px, min(46cqw, 58vh, calc(100cqw - 2 * (var(--cat-w) + var(--cat-gap) + 10px))), 420px);
+    --core-size: clamp(140px, min(55cqw, 62vh, calc(100cqw - 2 * (var(--cat-w) + var(--cat-gap) + 16px))), 500px);
   }
 }
 .cat-fishing, .cat-creative, .cat-analysis, .cat-nature { left: var(--cat-column); }
