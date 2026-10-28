@@ -241,7 +241,13 @@ button:hover .chevron { color: var(--cyan); transform: translateX(2px); }
 .empty-state h2 { margin: 12px 0 5px; font-size: 14px; font-weight: 450; }
 .empty-state p { max-width: 330px; margin: 0; color: #a8bac4; font-size: 10px; }
 .empty-state code { color: var(--cyan); font: 9px var(--mono); }
-.stage-hint { position: absolute; z-index: 4; bottom: 10px; left: 50%; transform: translateX(-50%); color: rgba(211,231,238,.72); font: 7px var(--mono); letter-spacing: .13em; white-space: nowrap; pointer-events: none; text-shadow: 0 2px 6px #061018; }
+/* Barre de guidage : elle dit toujours où l'on est et quoi faire ensuite. */
+.stage-hint { position: absolute; z-index: 6; bottom: 10px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 9px; max-width: calc(100% - 24px); padding: 6px 9px 6px 11px; border: 1px solid rgba(126,232,244,.16); border-radius: 999px; background: rgba(3,11,17,.62); color: rgba(216,237,243,.86); font: 8px var(--mono); letter-spacing: .1em; white-space: nowrap; backdrop-filter: blur(6px); box-shadow: 0 6px 18px rgba(0,0,0,.28); }
+.stage-hint .hint-sep { color: var(--cyan); padding: 0 3px; }
+.stage-hint .hint-keys { padding: 2px 5px; border: 1px solid rgba(148,190,206,.22); border-radius: 4px; color: #8fa8b4; font-size: 7px; letter-spacing: .08em; }
+.hint-back { display: inline-flex; align-items: center; gap: 5px; padding: 3px 8px; border: 1px solid rgba(126,232,244,.36); border-radius: 999px; background: rgba(126,232,244,.1); color: #b9f4fb; font: 7px var(--mono); letter-spacing: .1em; cursor: pointer; transition: .18s ease; }
+.hint-back:hover { border-color: rgba(126,232,244,.7); background: rgba(126,232,244,.2); color: #eaffff; }
+.hint-back[hidden] { display: none; }
 .stage-hint span { padding: 0 5px; color: var(--cyan); }
 .graph-footer { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 31px; padding: 4px 8px; }
 .legend { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
@@ -438,8 +444,13 @@ button:hover .chevron { color: var(--cyan); transform: translateX(2px); }
 }
 
 /* Adaptation à la largeur réelle de la scène (et non à celle de la fenêtre). */
-@container stage (max-width: 600px) {
-  .stage-hint { display: none; }
+@container stage (max-width: 760px) {
+  .stage-hint { font-size: 7px; letter-spacing: .06em; gap: 7px; padding: 5px 8px 5px 9px; }
+}
+@container stage (max-width: 620px) {
+  /* Sur une scène étroite, on garde l'essentiel : l'étape et le retour. */
+  .stage-hint { white-space: normal; text-align: center; }
+  .stage-hint .hint-keys { display: none; }
 }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; }

@@ -6,9 +6,9 @@
   <meta name="theme-color" content="#070b12">
   <meta name="description" content="JARVIS — votre assistant personnel, dans un cockpit holographique.">
   <title>JARVIS — Personal AI Command Center</title>
-  <link rel="stylesheet" href="/styles.css?v=20261028c">
-  <script defer src="/graph-data.js?v=20261028c"></script>
-  <script defer src="/app.js?v=20261028c"></script>
+  <link rel="stylesheet" href="/styles.css?v=20261029a">
+  <script defer src="/graph-data.js?v=20261029a"></script>
+  <script defer src="/app.js?v=20261029a"></script>
 </head>
 <body>
   <div class="screen-shade" aria-hidden="true"></div>
@@ -93,7 +93,7 @@
         <div class="stage-hud stage-hud-left"><span class="hud-label">SECTEUR ACTIF</span><b id="sectorLabel">TOUS LES THÈMES</b></div>
         <div class="stage-hud stage-hud-right"><span class="orbit-indicator"></span><span id="stageModeLabel">RÉSEAU LOCAL</span></div>
         <div class="empty-state" id="emptyState" hidden><span class="empty-orb">✳</span><h2>Votre mémoire attend ses premières notes</h2><p>Ajoutez des fichiers Markdown <code>.md</code> dans votre dossier personnel, puis relancez JARVIS.</p></div>
-        <div class="stage-hint" id="stageHint">THÈMES <span>·</span> CLIQUEZ POUR OUVRIR UN THÈME</div>
+        <div class="stage-hint" id="stageHint" role="status" aria-live="polite"><button class="hint-back" id="hintBack" type="button" hidden><span aria-hidden="true">←</span><span id="hintBackLabel">THÈMES</span></button><span id="stageHintText">VOS NOTES, CLASSÉES PAR THÈME <span class="hint-sep">·</span> CLIQUEZ SUR UN POINT</span><span class="hint-keys" aria-hidden="true">ÉCHAP</span></div>
       </div>
 
       <div class="graph-footer"><div class="legend" id="legend" aria-label="Groupes de notes"></div><div class="graph-footnote"><span class="mini-pulse"></span><span id="graphStatus">Index local prêt</span></div></div>

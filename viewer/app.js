@@ -53,9 +53,12 @@
   let speechWatchdog = null;
   let stars = [];
   let projectedNodes = [];
+  let lastFrameTime = performance.now();
+  // Position écran interpolée de chaque point : c'est ce qui rend les transitions fluides.
+  const motion = new Map();
   // Couronne de notes : son rayon se déduit du cœur mesuré à l'écran, pour que les
   // notes restent juste autour de JARVIS au lieu de partir vers les bords de la scène.
-  const orbit = { cx: 0, cy: 0, rx: 0, ry: 0, inner: 0 };
+  const orbit = { cx: 0, cy: 0, rx: 0, ry: 0, inner: 0, tilt: .84 };
   // Niveau de lecture : « main » = notes principales, « detail » = notes spécifiques.
   let level = "themes";
   let themeFilter = null;
@@ -138,8 +141,9 @@
   function orbitPoint(index, total) {
     const viewScale = Math.min(1.08, Math.max(1, zoom));
     const angle = (index / Math.max(total, 1)) * Math.PI * 2 - Math.PI / 2 + rotationY;
-    // Inclinaison : glisser verticalement redresse ou aplatit l'orbite.
-    const tilt = .62 + .38 * Math.abs(Math.cos(rotationX));
+    // Inclinaison : le glissement vertical la règle, et une respiration très lente
+    // l'anime au repos pour que le cercle paraisse vivant, comme un hologramme.
+    const tilt = orbit.tilt;
     const offsetX = Math.cos(angle) * orbit.rx * viewScale;
     const offsetY = Math.sin(angle) * orbit.ry * tilt * viewScale;
     const depth = (Math.sin(angle) + 1) / 2;
@@ -227,6 +231,8 @@
     if (!width || !height) return;
     context.clearRect(0, 0, width, height);
     const time = performance.now() / 1000;
+    // Respiration de l'inclinaison : ±3 % sur environ 18 secondes.
+    orbit.tilt = (.62 + .38 * Math.abs(Math.cos(rotationX))) * (1 + Math.sin(time * .35) * .03);
 
     for (const star of stars) {
       const twinkle = .65 + .35 * Math.sin(time * .8 + star.phase);
@@ -253,211 +259,274 @@
     const byId = new Map(graph.nodes.map((node) => [node.id, node]));
     const showingThemes = level === "themes" && !searchTerm && !graphOverview;
     const displayed = showingThemes ? themeNodes() : visibleNodes();
-    const projected = new Map();
-    displayed.forEach((node, index) => projected.set(node.id, orbitPoint(index, displayed.length)));
-    const displayedIds = new Set(displayed.map((node) => node.id));
+    const count = displayed.length;
     const activeIds = new Set(focusedIds);
     if (selectedId !== null) {
       activeIds.add(selectedId);
       for (const id of neighborsOf(selectedId)) activeIds.add(id);
     }
     if (clusterIds.length) clusterIds.forEach((id) => activeIds.add(id));
-    // Les notes restent visibles en permanence : les principales, ou celles d'une note
-    // ouverte. Les boutons de la scène s'effacent seulement pendant la lecture d'une source.
-    // Les orbes de catégories restent visibles : elles encadrent les notes sans les
-    // recouvrir, et servent de raccourci pendant la lecture d'une source.
-    if (!displayed.length) {
-      projectedNodes = [];
-      return;
-    }
 
-    if (showingThemes) {
-      const themeItems = displayed.map((node, index) => ({ node, point: orbitPoint(index, displayed.length) }))
-        .sort((a, b) => a.point.z - b.point.z);
-      projectedNodes = themeItems;
-      for (const { node, point } of themeItems) {
-        const isHovered = hoveredId === node.id;
-        const empty = !node.count;
-        const radius = 7.4 * (.82 + point.factor * .42) * (isHovered ? 1.28 : 1);
-        context.save();
-        context.globalAlpha = empty ? .34 : isHovered ? 1 : .94;
-        const halo = context.createRadialGradient(point.x, point.y, radius * .4, point.x, point.y, radius * 4.6);
-        halo.addColorStop(0, "rgba(140,242,250,.55)");
-        halo.addColorStop(.45, "rgba(96,216,236,.18)");
-        halo.addColorStop(1, "rgba(96,216,236,0)");
-        context.fillStyle = halo;
-        context.beginPath();
-        context.arc(point.x, point.y, radius * 4.6, 0, Math.PI * 2);
-        context.fill();
-        context.beginPath();
-        context.arc(point.x, point.y, radius, 0, Math.PI * 2);
-        context.fillStyle = "#c9fbfe";
-        context.fill();
-        context.beginPath();
-        context.arc(point.x, point.y, radius * 1.55, 0, Math.PI * 2);
-        context.strokeStyle = "rgba(114,228,239,.5)";
-        context.lineWidth = 1;
-        context.stroke();
-        context.beginPath();
-        context.arc(point.x, point.y, radius * 2.2, 0, Math.PI * 2);
-        context.strokeStyle = "rgba(114,228,239,.18)";
-        context.stroke();
-        // Libellé : le nom du thème, et le nombre de notes dessous.
-        context.textAlign = "center";
-        context.textBaseline = "middle";
-        context.font = `600 ${isHovered ? 12 : 11}px var(--mono, ui-monospace), ui-monospace, monospace`;
-        context.shadowColor = "rgba(0,0,0,.95)";
-        context.shadowBlur = 7;
-        context.lineWidth = 3;
-        context.strokeStyle = "rgba(2,10,16,.85)";
-        context.fillStyle = isHovered ? "#ffffff" : "#e6fbff";
-        const labelY = point.y + radius * 2.2 + 12;
-        context.strokeText(node.label, point.x, labelY, 160);
-        context.fillText(node.label, point.x, labelY, 160);
-        context.font = `9px ui-monospace, monospace`;
-        context.globalAlpha = empty ? .3 : .72;
-        context.fillStyle = "#bfe6ef";
-        const countText = node.count ? `${node.count} note${node.count > 1 ? "s" : ""}` : "aucune note";
-        context.strokeText(countText, point.x, labelY + 14, 120);
-        context.fillText(countText, point.x, labelY + 14, 120);
-        context.restore();
+    // --- Cible de chaque point, puis interpolation : les notes glissent au lieu de sauter.
+    const targets = new Map();
+    displayed.forEach((node, index) => targets.set(node.id, orbitPoint(index, count)));
+    const now = performance.now();
+    const dt = Math.min(.05, Math.max(.001, (now - lastFrameTime) / 1000));
+    lastFrameTime = now;
+    const ease = 1 - Math.exp(-dt * 9);
+
+    for (const id of Array.from(motion.keys())) {
+      if (!targets.has(id)) motion.delete(id);
+    }
+    const points = new Map();
+    for (const [id, target] of targets) {
+      let state = motion.get(id);
+      if (!state) {
+        // Une nouvelle note naît au cœur de JARVIS et s'éloigne en douceur.
+        state = { x: orbit.cx, y: orbit.cy, alpha: 0, scale: .35, phase: Math.random() * Math.PI * 2 };
+        motion.set(id, state);
       }
-      return;
+      const float = Math.sin(time * .55 + state.phase) * 2.2;
+      state.x += (target.x - state.x) * ease;
+      state.y += (target.y + float * .35 - state.y) * ease;
+      state.alpha += (1 - state.alpha) * ease;
+      const hovered = hoveredId === id;
+      const wanted = (hovered ? 1.3 : 1) * (target.factor);
+      state.scale += (wanted - state.scale) * ease;
+      points.set(id, { x: state.x, y: state.y, z: target.z, factor: target.factor, alpha: state.alpha, scale: state.scale });
     }
+    const displayedIds = new Set(displayed.map((node) => node.id));
 
+    drawOrbitGuides(time, showingThemes);
+
+    // --- Liens : arcs concentriques avec un flux lumineux qui circule.
     let drawnFocusEdges = 0;
     const focusEdgeLimit = labelIds.size >= 4 ? 18 : 12;
-    for (const link of graph.links) {
-      const { source, target } = linkIds(link);
-      if (!displayedIds.has(source) || !displayedIds.has(target)) continue;
-      const relevantEdge = labelIds.has(source) || labelIds.has(target) || source === hoveredId || target === hoveredId;
-      if (!graphOverview && activeGroup === null && !relevantEdge) continue;
-      if (!graphOverview && activeGroup === null && drawnFocusEdges >= focusEdgeLimit) continue;
-      if (!graphOverview && activeGroup === null) drawnFocusEdges += 1;
-      const a = projected.get(source);
-      const b = projected.get(target);
-      if (!a || !b) continue;
-      const bright = labelIds.has(source) && labelIds.has(target) || labelIds.size <= 1 && (source === selectedId || target === selectedId);
-      const inGroup = activeGroup === null || byId.get(source)?.group === activeGroup && byId.get(target)?.group === activeGroup;
-      const inSearch = !searchTerm || normalize(byId.get(source)?.label + " " + byId.get(source)?.excerpt).includes(searchTerm) || normalize(byId.get(target)?.label + " " + byId.get(target)?.excerpt).includes(searchTerm);
-      if (activeGroup !== null && !inGroup) continue;
-      const centerX = orbit.cx;
-      const centerY = orbit.cy;
-      const startAngle = Math.atan2(a.y - centerY, a.x - centerX);
-      const endAngle = Math.atan2(b.y - centerY, b.x - centerX);
-      let angleDelta = endAngle - startAngle;
-      while (angleDelta > Math.PI) angleDelta -= Math.PI * 2;
-      while (angleDelta < -Math.PI) angleDelta += Math.PI * 2;
-      const arcRadius = (Math.hypot(a.x - centerX, a.y - centerY) + Math.hypot(b.x - centerX, b.y - centerY)) / 2;
-      context.beginPath();
-      context.arc(centerX, centerY, arcRadius, startAngle, startAngle + angleDelta, angleDelta < 0);
-      context.lineWidth = bright ? 1.25 : .55;
-      context.strokeStyle = bright ? "rgba(113, 232, 228, .66)" : "rgba(107, 196, 217, .14)";
-      const opacity = graphOverview ? (bright ? .22 : .045) : bright ? .4 : .12;
-      context.globalAlpha = (inGroup && inSearch ? 1 : .2) * opacity * (.45 + ((a.z + b.z + 2) / 4) * .55);
-      context.stroke();
+    if (!showingThemes) {
+      for (const link of graph.links) {
+        const { source, target } = linkIds(link);
+        if (!displayedIds.has(source) || !displayedIds.has(target)) continue;
+        const relevantEdge = labelIds.has(source) || labelIds.has(target) || source === hoveredId || target === hoveredId;
+        if (!graphOverview && activeGroup === null && !relevantEdge) continue;
+        if (!graphOverview && activeGroup === null && drawnFocusEdges >= focusEdgeLimit) continue;
+        if (!graphOverview && activeGroup === null) drawnFocusEdges += 1;
+        const a = points.get(source);
+        const b = points.get(target);
+        if (!a || !b) continue;
+        const bright = labelIds.has(source) && labelIds.has(target) || labelIds.size <= 1 && (source === selectedId || target === selectedId);
+        const centerX = orbit.cx;
+        const centerY = orbit.cy;
+        const startAngle = Math.atan2(a.y - centerY, a.x - centerX);
+        const endAngle = Math.atan2(b.y - centerY, b.x - centerX);
+        let angleDelta = endAngle - startAngle;
+        while (angleDelta > Math.PI) angleDelta -= Math.PI * 2;
+        while (angleDelta < -Math.PI) angleDelta += Math.PI * 2;
+        const arcRadius = (Math.hypot(a.x - centerX, a.y - centerY) + Math.hypot(b.x - centerX, b.y - centerY)) / 2;
+        context.save();
+        context.beginPath();
+        context.arc(centerX, centerY, arcRadius, startAngle, startAngle + angleDelta, angleDelta < 0);
+        context.lineWidth = bright ? 1.3 : .7;
+        context.strokeStyle = bright ? "rgba(120, 236, 240, .5)" : "rgba(107, 196, 217, .16)";
+        context.globalAlpha = Math.min(a.alpha, b.alpha) * (bright ? .9 : .55);
+        context.stroke();
+        // Le flux lumineux qui parcourt l'arc rend le réseau lisible et vivant.
+        context.setLineDash([2, 26]);
+        context.lineDashOffset = -time * 46;
+        context.lineWidth = 1.7;
+        context.strokeStyle = bright ? "rgba(196, 252, 255, .9)" : "rgba(150, 232, 245, .38)";
+        context.stroke();
+        context.restore();
+      }
     }
     context.globalAlpha = 1;
+    context.setLineDash([]);
 
-    const ordered = displayed.map((node) => ({ node, point: projected.get(node.id) }))
+    // --- Points et libellés, du plus lointain au plus proche.
+    const ordered = displayed.map((node) => ({ node, point: points.get(node.id) }))
       .filter((item) => item.point)
       .sort((a, b) => a.point.z - b.point.z);
     projectedNodes = ordered;
+
     for (const { node, point } of ordered) {
-      const isSelected = selectedId === node.id;
       const isHovered = hoveredId === node.id;
-      const isFocused = activeIds.has(node.id);
-      const isSourceNode = labelIds.has(node.id);
-      const matchSearch = !searchTerm || normalize(`${node.label} ${node.excerpt}`).includes(searchTerm);
-      const matchGroup = activeGroup === null || node.group === activeGroup;
-      const dimmed = !matchSearch || !matchGroup;
-      // Niveau principal : les notes sont peu nombreuses, elles prennent donc plus de
-      // place et portent toutes leur nom. Le niveau détail reste plus discret.
+      if (showingThemes) {
+        drawThemeNode(node, point, isHovered);
+        continue;
+      }
+      const isSelected = selectedId === node.id;
       const isFocusNode = level === "detail" && node.id === focusId;
-      const isMainLevel = level === "main" && !searchTerm && !graphOverview;
-      const levelScale = isFocusNode ? 2.2 : isMainLevel ? 2.1 : level === "detail" ? 1.35 : 1;
-      const base = Math.max(2.4, Math.min(5.8, 3 + (node.connections || 0) * .28));
-      const radius = base * levelScale * (.72 + point.factor * .38) * (isSelected ? 1.4 : isHovered ? 1.25 : 1);
-      const color = colorForGroup(node.group || "notes");
+      const isSourceNode = labelIds.has(node.id);
+      const inTheme = level === "main" && !searchTerm && !graphOverview;
+      const radius = nodeRadius(node, point, isSelected, isHovered);
+      const color = colorForGroup(node.theme || node.group || "notes");
       const pulseStart = pulseTimes.get(node.id);
-      const age = pulseStart ? (performance.now() - pulseStart) / 1000 : 9;
+      const age = pulseStart ? (now - pulseStart) / 1000 : 9;
       if (age < 2.2) {
         const pulse = age / 2.2;
         context.beginPath();
-        context.arc(point.x, point.y, radius + pulse * 22, 0, Math.PI * 2);
+        context.arc(point.x, point.y, radius + pulse * 26, 0, Math.PI * 2);
         context.strokeStyle = color;
-        context.globalAlpha = (1 - pulse) * .7;
+        context.globalAlpha = (1 - pulse) * .7 * point.alpha;
         context.lineWidth = 1.4;
         context.stroke();
         context.globalAlpha = 1;
       }
+      const emphasis = isSelected || isHovered || isFocusNode;
+      const baseAlpha = emphasis ? .98 : inTheme || level === "detail" ? .9 : graphOverview ? .55 : .2;
+      drawPill(point.x, point.y, radius, point.alpha * baseAlpha, emphasis ? 1.15 : 1, radius * (emphasis ? 2.05 : 1.62));
 
-      context.save();
-      const nodeOpacity = isSelected || isHovered ? .96
-        : isFocusNode ? .96
-        : isMainLevel || level === "detail" ? .86
-        : isSourceNode ? .8
-        : graphOverview ? .5
-        : searchTerm && matchSearch ? .7
-        : activeGroup !== null ? .28 : .12;
-      context.globalAlpha = dimmed ? .045 : nodeOpacity;
-      context.shadowColor = color;
-      context.shadowBlur = isFocused || isSelected || isHovered ? 20 : 10;
-      context.beginPath();
-      context.arc(point.x, point.y, radius, 0, Math.PI * 2);
-      context.fillStyle = color;
-      context.fill();
-      context.shadowBlur = 0;
-      context.beginPath();
-      context.arc(point.x, point.y, radius + (isFocused ? 4 : 2.3), 0, Math.PI * 2);
-      context.strokeStyle = color;
-      context.globalAlpha = dimmed ? .025 : isSelected || isHovered || isSourceNode ? .76 : isFocused ? .13 : graphOverview ? .07 : activeGroup !== null ? .22 : .08;
-      context.lineWidth = isSelected || isSourceNode ? 1.1 : .65;
-      context.stroke();
-      context.restore();
-
-      // Au premier niveau, chaque note principale est nommée. Au second, toutes les
-      // notes spécifiques le sont tant qu'elles restent peu nombreuses.
-      const shouldLabel = isSelected || isHovered || textIds.has(node.id) || isFocusNode
-        || isMainLevel
+      const labelAlpha = point.alpha * (emphasis ? 1 : inTheme || level === "detail" ? .96 : .45);
+      const shouldLabel = emphasis || labelIds.has(node.id) || inTheme
         || (level === "detail" && (ordered.length <= 14 || point.z > .15));
-      if (shouldLabel && !dimmed) {
-        context.save();
-        const radialX = point.x - orbit.cx;
-        const radialY = point.y - orbit.cy;
-        const radialLength = Math.hypot(radialX, radialY) || 1;
-        const outwardX = radialX / radialLength;
-        const outwardY = radialY / radialLength;
-        context.globalAlpha = isSelected || isHovered ? 1 : .95;
-        // Libellés lisibles : grands, cernés de sombre, et placés dans le couloir libre
-        // entre le cœur et les colonnes de catégories.
-        context.font = `${isSelected || isHovered ? 11 : 10}px ui-monospace, SFMono-Regular, Menlo, monospace`;
-        context.textBaseline = "middle";
-        context.shadowColor = "rgba(0, 0, 0, .98)";
-        context.shadowBlur = 7;
-        context.fillStyle = isSelected ? "#f6ffff" : isHovered ? "#e8fbff" : "#dcf3f8";
-        const label = node.label.length > 24 ? `${node.label.slice(0, 22)}…` : node.label;
-        const maxWidth = Math.min(174, Math.max(110, width * .28));
-        const offset = radius + 9;
-        // Les notes franchement sur les côtés reçoivent leur libellé au-dessus ou en
-        // dessous : posé à l'extérieur, le texte sortirait de la scène.
-        const side = Math.abs(outwardX) > .72;
-        context.textAlign = side ? "center" : outwardX > .25 ? "left" : outwardX < -.25 ? "right" : "center";
-        let labelX = point.x + (side ? 0 : outwardX * offset);
-        let labelY = side ? point.y + (outwardY < 0 ? -offset : offset) : point.y + outwardY * offset;
-        const half = context.textAlign === "center" ? maxWidth / 2 : 0;
-        const leftBound = context.textAlign === "right" ? maxWidth : half;
-        const rightBound = context.textAlign === "left" ? maxWidth : half;
-        labelX = Math.max(8 + leftBound, Math.min(width - 8 - rightBound, labelX));
-        labelY = Math.max(14, Math.min(height - 12, labelY));
-        context.lineWidth = 3;
-        context.strokeStyle = "rgba(2, 10, 16, .82)";
-        context.strokeText(label, labelX, labelY, maxWidth);
-        context.fillText(label, labelX, labelY, maxWidth);
-        context.restore();
+      if (shouldLabel && labelAlpha > .05) {
+        placeLabel(node.label, point, radius, labelAlpha, emphasis);
       }
     }
     context.globalAlpha = 1;
+  }
+
+  // --- Briques de dessin -----------------------------------------------------
+
+  function nodeRadius(node, point, isSelected, isHovered) {
+    const base = Math.max(3.4, Math.min(7.2, 4.4 + (node.connections || 0) * .16));
+    return base * (isSelected ? 1.35 : isHovered ? 1.22 : 1) * (point.scale || 1) * (1 + Math.sin(performance.now() / 620 + (node.id % 7)) * .05);
+  }
+
+  function drawPill(x, y, radius, alpha, glow, ringRadius) {
+    if (alpha <= .01) return;
+    context.save();
+    const halo = context.createRadialGradient(x, y, radius * .4, x, y, radius * 4.6);
+    halo.addColorStop(0, `rgba(150,244,252,${Math.min(.55, .5 * alpha * glow)})`);
+    halo.addColorStop(.45, `rgba(96,216,236,${.16 * alpha})`);
+    halo.addColorStop(1, "rgba(96,216,236,0)");
+    context.fillStyle = halo;
+    context.beginPath();
+    context.arc(x, y, radius * 4.6, 0, Math.PI * 2);
+    context.fill();
+    context.globalAlpha = alpha;
+    context.beginPath();
+    context.arc(x, y, radius, 0, Math.PI * 2);
+    context.fillStyle = "#d8feff";
+    context.fill();
+    context.beginPath();
+    context.arc(x, y, radius * .52, 0, Math.PI * 2);
+    context.fillStyle = "rgba(255,255,255,.9)";
+    context.fill();
+    context.beginPath();
+    context.arc(x, y, ringRadius, 0, Math.PI * 2);
+    context.strokeStyle = `rgba(126,232,244,${.5 * alpha})`;
+    context.lineWidth = 1;
+    context.stroke();
+    context.beginPath();
+    context.arc(x, y, ringRadius * 1.45, 0, Math.PI * 2);
+    context.strokeStyle = `rgba(126,232,244,${.16 * alpha})`;
+    context.stroke();
+    context.restore();
+  }
+
+  function placeLabel(text, point, radius, alpha, emphasis) {
+    const radialX = point.x - orbit.cx;
+    const radialY = point.y - orbit.cy;
+    const length = Math.hypot(radialX, radialY) || 1;
+    const outwardX = radialX / length;
+    const outwardY = radialY / length;
+    context.save();
+    context.globalAlpha = alpha;
+    context.font = `${emphasis ? 11 : 10}px ui-monospace, SFMono-Regular, Menlo, monospace`;
+    context.textBaseline = "middle";
+    context.shadowColor = "rgba(0, 0, 0, .98)";
+    context.shadowBlur = 7;
+    context.fillStyle = emphasis ? "#f6ffff" : "#dcf3f8";
+    const label = text.length > 24 ? `${text.slice(0, 22)}…` : text;
+    const maxWidth = Math.min(174, Math.max(110, width * .28));
+    const offset = radius + 11;
+    const side = Math.abs(outwardX) > .72;
+    context.textAlign = side ? "center" : outwardX > .25 ? "left" : outwardX < -.25 ? "right" : "center";
+    let labelX = point.x + (side ? 0 : outwardX * offset);
+    let labelY = side ? point.y + (outwardY < 0 ? -offset : offset) : point.y + outwardY * offset;
+    const half = context.textAlign === "center" ? maxWidth / 2 : 0;
+    const leftBound = context.textAlign === "right" ? maxWidth : half;
+    const rightBound = context.textAlign === "left" ? maxWidth : half;
+    labelX = Math.max(8 + leftBound, Math.min(width - 8 - rightBound, labelX));
+    labelY = Math.max(14, Math.min(height - 12, labelY));
+    context.lineWidth = 3;
+    context.strokeStyle = "rgba(2, 10, 16, .82)";
+    context.strokeText(label, labelX, labelY, maxWidth);
+    context.fillText(label, labelX, labelY, maxWidth);
+    context.restore();
+  }
+
+  function drawThemeNode(node, point, isHovered) {
+    const empty = !node.count;
+    const radius = 8.6 * (point.scale || 1) * (empty ? .78 : 1);
+    const alpha = point.alpha * (empty ? .38 : isHovered ? 1 : .95);
+    drawPill(point.x, point.y, radius, alpha, isHovered ? 1.5 : 1, point.alpha * radius * 1.9);
+    context.save();
+    context.globalAlpha = point.alpha * (empty ? .45 : isHovered ? 1 : .92);
+    context.textAlign = "center";
+    context.textBaseline = "middle";
+    context.shadowColor = "rgba(0,0,0,.95)";
+    context.shadowBlur = 7;
+    context.lineWidth = 3;
+    context.strokeStyle = "rgba(2,10,16,.85)";
+    context.font = `600 ${isHovered ? 13 : 12}px ui-monospace, SFMono-Regular, Menlo, monospace`;
+    context.fillStyle = isHovered ? "#ffffff" : "#e6fbff";
+    const labelY = point.y + radius * 2.6 + 11;
+    context.strokeText(node.label, point.x, labelY, 176);
+    context.fillText(node.label, point.x, labelY, 176);
+    context.font = `9px ui-monospace, SFMono-Regular, Menlo, monospace`;
+    context.globalAlpha = point.alpha * (empty ? .35 : .72);
+    context.fillStyle = "#bfe6ef";
+    const countText = node.count ? `${node.count} note${node.count > 1 ? "s" : ""}` : "aucune note";
+    context.strokeText(countText, point.x, labelY + 15, 130);
+    context.fillText(countText, point.x, labelY + 15, 130);
+    context.restore();
+  }
+
+  // Anneau de guidage : ellipse pointillée qui tourne, graduations et halo tournant.
+  function drawOrbitGuides(time, showingThemes) {
+    const { cx, cy, rx, ry } = orbit;
+    const tilt = orbit.tilt;
+    context.save();
+    context.beginPath();
+    context.ellipse(cx, cy, rx, ry * tilt, 0, 0, Math.PI * 2);
+    context.strokeStyle = "rgba(94, 196, 220, .12)";
+    context.lineWidth = 1;
+    context.stroke();
+    // Graduations : le côté « instrument » du HUD.
+    const ticks = 72;
+    for (let index = 0; index < ticks; index += 1) {
+      const angle = (index / ticks) * Math.PI * 2;
+      const long = index % 6 === 0;
+      const inner = 1 - (long ? .035 : .018);
+      const x1 = cx + Math.cos(angle) * rx * inner;
+      const y1 = cy + Math.sin(angle) * ry * tilt * inner;
+      const x2 = cx + Math.cos(angle) * rx;
+      const y2 = cy + Math.sin(angle) * ry * tilt;
+      context.beginPath();
+      context.moveTo(x1, y1);
+      context.lineTo(x2, y2);
+      context.strokeStyle = long ? "rgba(126,232,244,.22)" : "rgba(126,232,244,.1)";
+      context.stroke();
+    }
+    // Deux arcs lumineux en rotation : le cercle « respire » en permanence.
+    for (const [offset, span, alpha, speed] of [[0, .55, .3, .07], [Math.PI, .3, .16, -.045]]) {
+      const start = time * speed + offset;
+      context.beginPath();
+      context.ellipse(cx, cy, rx, ry * tilt, 0, start, start + span);
+      context.strokeStyle = `rgba(150, 240, 250, ${alpha})`;
+      context.lineWidth = 1.6;
+      context.stroke();
+    }
+    if (showingThemes) {
+      const breathe = 1 + Math.sin(time * .8) * .012;
+      context.beginPath();
+      context.ellipse(cx, cy, rx * breathe, ry * tilt * breathe, 0, 0, Math.PI * 2);
+      context.strokeStyle = "rgba(126,232,244,.07)";
+      context.lineWidth = 10;
+      context.stroke();
+    }
+    context.restore();
   }
 
   function frame() {
@@ -595,8 +664,8 @@
     sourceEmpty.hidden = false;
     $("#sectorLabel").textContent = label;
     updateStageHint(notes.length
-      ? `THÈME ${label} · ${notes.length} NOTE${notes.length > 1 ? "S" : ""} · CLIQUEZ SUR UNE NOTE`
-      : `THÈME ${label} · AUCUNE NOTE POUR L’INSTANT`);
+      ? `${label} · ${notes.length} NOTE${notes.length > 1 ? "S" : ""} · CLIQUEZ SUR UNE NOTE POUR LA LIRE`
+      : `${label} · AUCUNE NOTE POUR L’INSTANT`, "THÈMES");
     graphStatus.textContent = notes.length
       ? `${label} · ${notes.length} note${notes.length > 1 ? "s" : ""}`
       : `${label} · aucune note pour l’instant`;
@@ -619,7 +688,7 @@
     syncGraphToggle();
     renderSourcePanel(node, []);
     const count = Math.max(0, visibleNodes().length - 1);
-    updateStageHint(`NOTES SPÉCIFIQUES DE « ${node.label.toUpperCase()} » · ${count} NOTE${count > 1 ? "S" : ""} · CLIQUEZ SUR L’UNE D’ELLES`);
+    updateStageHint(`${node.label.toUpperCase()} · CLIQUEZ SUR UNE NOTE LIÉE POUR LA LIRE`, (themeFilter || "THÈMES").toUpperCase());
     graphStatus.textContent = `${node.label} · ${count} note${count > 1 ? "s" : ""} liée${count > 1 ? "s" : ""}`;
     draw();
   }
@@ -639,7 +708,7 @@
     sourceContent.hidden = true;
     sourceEmpty.hidden = false;
     $("#sectorLabel").textContent = "TOUS LES THÈMES";
-    updateStageHint("THÈMES · CLIQUEZ POUR OUVRIR UN THÈME");
+    updateStageHint("VOS NOTES, CLASSÉES PAR THÈME · CLIQUEZ SUR UN POINT POUR OUVRIR SES NOTES");
     graphStatus.textContent = "Index local prêt";
     renderLegend();
     draw();
@@ -700,8 +769,17 @@
     draw();
   }
 
-  function updateStageHint(text) {
-    $("#stageHint").textContent = text;
+  function updateStageHint(text, back = null) {
+    const textEl = $("#stageHintText");
+    if (textEl) textEl.textContent = text;
+    const backButton = $("#hintBack");
+    if (!backButton) return;
+    // Le bouton retour dit toujours vers quoi il ramène.
+    backButton.hidden = !back;
+    if (back) {
+      const label = $("#hintBackLabel");
+      if (label) label.textContent = back;
+    }
   }
 
   function syncGraphToggle() {
@@ -1357,7 +1435,7 @@
     sourceContent.hidden = true;
     sourceEmpty.hidden = false;
     renderLegend();
-    updateStageHint("THÈMES · CLIQUEZ POUR OUVRIR UN THÈME");
+    updateStageHint("VOS NOTES, CLASSÉES PAR THÈME · CLIQUEZ SUR UN POINT POUR OUVRIR SES NOTES");
     draw();
   }
 
@@ -1436,6 +1514,13 @@
       syncGraphToggle();
       draw();
     });
+    const hintBack = $("#hintBack");
+    if (hintBack) {
+      hintBack.addEventListener("click", () => {
+        if (level === "detail") { if (themeFilter) openTheme(themeFilter); else backToMain(); }
+        else backToMain();
+      });
+    }
     $("#helpButton").addEventListener("click", openHelp);
     $("#closeHelp").addEventListener("click", closeHelp);
     helpDialog.addEventListener("click", (event) => {
