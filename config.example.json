@@ -3,5 +3,11 @@
   "notes_dir": "examples/demo-notes",
   "api_key": "PUT-YOUR-KEY-HERE",
   "model": "claude-opus-4-8",
-  "base_url": ""
+  "base_url": "",
+  "auth": {
+    "google_client_id": "",
+    "google_client_secret": "",
+    "allowed_emails": "",
+    "public_url": ""
+  }
 }

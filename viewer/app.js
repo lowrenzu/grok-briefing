@@ -1264,6 +1264,29 @@
     }
   }
 
+  // Session Google : le serveur redirige les visiteurs non connectés, mais on affiche
+  // le compte courant et un bouton de déconnexion quand la protection est active.
+  async function loadSession() {
+    const chip = $("#accountChip");
+    if (!chip) return;
+    try {
+      const response = await fetch("/api/session", { headers: { Accept: "application/json" } });
+      if (!response.ok) return;
+      const session = await response.json();
+      if (!session.authRequired || !session.authenticated) {
+        chip.hidden = true;
+        return;
+      }
+      $("#accountEmail").textContent = session.email || "connecté";
+      chip.title = session.name
+        ? `${session.name} · ${session.email}`
+        : `Connecté avec ${session.email}`;
+      chip.hidden = false;
+    } catch (_error) {
+      chip.hidden = true;
+    }
+  }
+
   async function loadStatus() {
     try {
       const response = await fetch("/api/status", { headers: { Accept: "application/json" } });
@@ -1951,6 +1974,7 @@
   window.setInterval(updateClock, 60_000);
   greet();
   loadStatus();
+  loadSession();
   loadWeather();
   window.setInterval(loadWeather, 10 * 60 * 1000);
   if ("ResizeObserver" in window) new ResizeObserver(resizeCanvas).observe(stage);

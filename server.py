@@ -17,9 +17,11 @@ from http.cookies import SimpleCookie
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
+import urllib.parse
 from urllib.parse import urlencode, urlsplit
 
 import ai_providers
+import auth as auth_module
 from build import DEFAULT_NOTES_DIR, ROOT, build_links, normalize, public_graph, read_notes, resolve_notes_dir, write_graph_data
 
 CONFIG_PATH = ROOT / "config.json"
@@ -60,6 +62,20 @@ CONFIG = load_config()
 # Les réglages du cerveau IA sont vivants : le panneau Réglages les modifie sans
 # redémarrer le serveur. La clé reste dans config.json, côté serveur uniquement.
 AI = ai_providers.AiSettings(CONFIG_PATH)
+
+# Ouverture de session Google : activée seulement si des identifiants et au moins
+# une adresse autorisée sont fournis (config.json ou variables d'environnement).
+def _auth_from_config() -> auth_module.GoogleAuth:
+    block = CONFIG.get("auth") if isinstance(CONFIG.get("auth"), dict) else {}
+    return auth_module.GoogleAuth(
+        client_id=os.environ.get("JARVIS_GOOGLE_CLIENT_ID") or str(block.get("google_client_id") or ""),
+        client_secret=os.environ.get("JARVIS_GOOGLE_CLIENT_SECRET") or str(block.get("google_client_secret") or ""),
+        allowed=os.environ.get("JARVIS_ALLOWED_EMAILS") or str(block.get("allowed_emails") or ""),
+        public_url=os.environ.get("JARVIS_PUBLIC_URL") or str(block.get("public_url") or ""),
+    )
+
+
+AUTH = _auth_from_config()
 NOTES_DIR = resolve_notes_dir(CONFIG.get("notes_dir"))
 
 STATE_LOCK = threading.RLock()
@@ -354,6 +370,32 @@ def session_cookie(session_id: str) -> str:
     return f"jarvis_session={session_id}; Path=/; HttpOnly; SameSite=Strict; Max-Age={SESSION_TTL_SECONDS}"
 
 
+def request_scheme(handler: BaseHTTPRequestHandler) -> str:
+    forwarded = handler.headers.get("X-Forwarded-Proto", "").strip().lower()
+    if forwarded in {"http", "https"}:
+        return forwarded
+    if AUTH.public_url.startswith("https://"):
+        return "https"
+    return "http"
+
+
+def auth_token(handler: BaseHTTPRequestHandler) -> str | None:
+    cookies = SimpleCookie()
+    try:
+        cookies.load(handler.headers.get("Cookie", ""))
+    except Exception:
+        return None
+    value = cookies.get(auth_module.COOKIE_NAME)
+    return value.value if value else None
+
+
+def current_user(handler: BaseHTTPRequestHandler) -> dict[str, Any] | None:
+    """Utilisateur Google connecté, ou None."""
+    if not AUTH.ready:
+        return None
+    return AUTH.session(auth_token(handler))
+
+
 def chat_handler(question: str, session: dict[str, Any]) -> dict[str, Any]:
     notes, _graph = current_state()
     question = question.strip()
@@ -496,8 +538,110 @@ class JarvisHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
+    def redirect(self, location: str, cookie: str | None = None) -> None:
+        self.send_response(HTTPStatus.FOUND)
+        self.send_header("Location", location)
+        if cookie:
+            self.send_header("Set-Cookie", cookie)
+        self.send_header("Content-Length", "0")
+        self.send_header("Cache-Control", "no-store")
+        self.end_headers()
+
+    def send_login_page(self, message: str, status: HTTPStatus = HTTPStatus.FORBIDDEN) -> None:
+        """Page minimale, sans dépendance aux ressources protégées."""
+        body = (
+            "<!doctype html><html lang=\"fr\"><head><meta charset=\"utf-8\">"
+            "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">"
+            "<title>JARVIS — accès</title><style>"
+            "body{margin:0;min-height:100vh;display:grid;place-items:center;background:#050a10;color:#e8f8fc;"
+            "font:14px/1.6 ui-sans-serif,system-ui,sans-serif}"
+            ".card{max-width:420px;margin:20px;padding:26px;border:1px solid rgba(126,232,244,.28);border-radius:14px;"
+            "background:rgba(8,18,27,.92);box-shadow:0 20px 60px rgba(0,0,0,.5)}"
+            "h1{margin:0 0 10px;font-size:18px;font-weight:500}"
+            "p{margin:0 0 18px;color:#a9c0ca}"
+            "a{display:inline-block;padding:9px 16px;border:1px solid rgba(126,232,244,.45);border-radius:999px;"
+            "color:#c8f7fc;text-decoration:none;font:11px ui-monospace,monospace;letter-spacing:.1em}"
+            "a:hover{background:rgba(126,232,244,.12)}"
+            "</style></head><body><div class=\"card\"><h1>Accès à JARVIS</h1>"
+            f"<p>{message}</p><a href=\"/auth/login\">SE CONNECTER AVEC GOOGLE</a></div></body></html>"
+        ).encode("utf-8")
+        self.send_response(status)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("X-Frame-Options", "DENY")
+        self.end_headers()
+        self.wfile.write(body)
+
+    def handle_auth(self, path: str) -> bool:
+        """Routes /auth/*. Renvoie True si la requête a été traitée."""
+        if not path.startswith("/auth/"):
+            return False
+        secure_cookie = request_scheme(self) == "https"
+        if not AUTH.enabled:
+            self.send_login_page("La connexion Google n’est pas configurée sur ce serveur.")
+            return True
+        if path == "/auth/login":
+            if AUTH.allows_anyone:
+                self.send_login_page(
+                    "Aucune adresse autorisée n’est configurée : ajoutez la vôtre dans allowed_emails."
+                )
+                return True
+            host = self.headers.get("Host", "localhost")
+            try:
+                url = AUTH.authorize_url(AUTH.redirect_uri(request_scheme(self), host))
+            except auth_module.AuthError as exc:
+                self.send_login_page(str(exc))
+                return True
+            self.redirect(url)
+            return True
+        if path == "/auth/callback":
+            query = urllib.parse.parse_qs(urlsplit(self.path).query)
+            error = (query.get("error") or [""])[0]
+            if error:
+                self.send_login_page("Connexion annulée. Rien n’a été modifié.", HTTPStatus.UNAUTHORIZED)
+                return True
+            code = (query.get("code") or [""])[0]
+            state = (query.get("state") or [""])[0]
+            if not code:
+                self.send_login_page("Retour de Google incomplet.", HTTPStatus.BAD_REQUEST)
+                return True
+            try:
+                identity = AUTH.exchange(code, state)
+            except auth_module.AuthError as exc:
+                self.send_login_page(str(exc))
+                return True
+            token, cookie = AUTH.new_session(identity["email"], identity["name"])
+            cookie += "; Secure" if secure_cookie else ""
+            print(f"[JARVIS] Connexion autorisée : {identity['email']}")
+            self.redirect("/", cookie)
+            return True
+        if path == "/auth/logout":
+            AUTH.drop_session(auth_token(self))
+            self.redirect("/", auth_module.cleared_cookie(secure_cookie))
+            return True
+        return False
+
     def do_GET(self) -> None:  # noqa: N802
         path = urlsplit(self.path).path
+        if path.startswith("/auth/") and self.handle_auth(path):
+            return
+        # Si la connexion Google est configurée, tout le reste exige une session.
+        if AUTH.ready and path not in {"/auth/login", "/api/session"} and current_user(self) is None:
+            if path.startswith("/api/"):
+                return self.send_json({"error": "Connexion requise.", "authRequired": True}, HTTPStatus.UNAUTHORIZED)
+            return self.redirect("/auth/login")
+        if path == "/api/session":
+            user = current_user(self)
+            return self.send_json({
+                "authEnabled": AUTH.enabled,
+                "authRequired": AUTH.ready,
+                "authenticated": bool(user),
+                "email": user["email"] if user else None,
+                "name": user["name"] if user else None,
+                "loginUrl": "/auth/login" if AUTH.enabled else None,
+                "logoutUrl": "/auth/logout" if user else None,
+            })
         if path == "/api/weather":
             try:
                 return self.send_json(get_weather())
@@ -519,6 +663,8 @@ class JarvisHandler(BaseHTTPRequestHandler):
                 "providerLabel": AI.spec["label"] if AI.configured else None,
                 "model": AI.model if AI.configured else None,
                 "isDemo": is_demo,
+                "authRequired": AUTH.ready,
+                "user": (current_user(self) or {}).get("email"),
             })
         if path == "/api/graph":
             _notes, graph = current_state()
@@ -684,6 +830,10 @@ class JarvisHandler(BaseHTTPRequestHandler):
             self.send_json({"error": str(exc)}, HTTPStatus.BAD_REQUEST)
             return
 
+        if AUTH.ready and current_user(self) is None:
+            self.send_json({"error": "Connexion requise.", "authRequired": True}, HTTPStatus.UNAUTHORIZED)
+            return
+
         if path in {"/api/settings", "/api/settings/test"}:
             return self.handle_settings(path, body)
 
@@ -735,6 +885,14 @@ def main() -> None:
     print("\n  JARVIS est prêt.")
     print(f"  Notes : {len(graph['nodes'])}  ·  Liens : {len(graph['links'])}")
     print(f"  IA : {AI.spec['label'] + ' · ' + AI.model if AI.configured else 'mode local (sans clé API)'}")
+    if AUTH.ready:
+        print(f"  Accès : connexion Google obligatoire ({len(AUTH.allowed)} adresse(s) autorisée(s))")
+    elif AUTH.enabled:
+        print("  Accès : connexion Google configurée mais aucune adresse autorisée — accès refusé.")
+    else:
+        print("  Accès : ouvert (aucune connexion demandée)")
+    if host not in ("127.0.0.1", "localhost", "::1") and not AUTH.ready:
+        print("  ⚠  Écoute exposée sans connexion Google : vos notes sont accessibles sur le réseau.")
     print(f"  Ouvrez : http://localhost:{port}  (Chrome ou Edge pour la dictée)\n")
     try:
         server.serve_forever()

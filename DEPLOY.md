@@ -139,6 +139,64 @@ Puis ouvrez `http://127.0.0.1:4700` sur votre PC : le trafic passe dans le tunne
 
 ---
 
+---
+
+## 🔐 Connexion Google obligatoire
+
+Depuis cette version, JARVIS peut exiger une **connexion Google** avant d'afficher quoi que ce soit, et n'accepter qu'une liste d'adresses (la vôtre). C'est la bonne réponse au problème « pas de mot de passe » : plus besoin de retenir un mot de passe de plus, et vous pouvez révoquer l'accès à tout moment.
+
+### 1. Créer l'identifiant dans Google Cloud (5 minutes, gratuit)
+
+1. Ouvrez <https://console.cloud.google.com/> et créez un projet, par exemple `jarvis`.
+2. Menu **APIs & Services → OAuth consent screen** :
+   - type **External**, nom de l'application `JARVIS`, votre e-mail comme contact ;
+   - dans **Test users**, ajoutez **votre adresse Gmail** (indispensable : en mode test, seuls ces comptes peuvent se connecter) ;
+   - laissez l'application en mode **Testing** : c'est fait pour un usage personnel, aucune vérification Google n'est demandée.
+3. Menu **APIs & Services → Credentials → Create credentials → OAuth client ID** :
+   - type **Web application**, nom `JARVIS web` ;
+   - **Authorized redirect URIs** : `https://jarvis.mondomaine.fr/auth/callback` (le domaine exact que vous utiliserez) ;
+   - pour un essai local, ajoutez aussi `http://localhost:4700/auth/callback`.
+4. Copiez le **Client ID** et le **Client secret**.
+
+### 2. Renseigner JARVIS
+
+Dans `config.json` :
+
+```json
+{
+  "auth": {
+    "google_client_id": "123456789-abc.apps.googleusercontent.com",
+    "google_client_secret": "GOCSPX-...",
+    "allowed_emails": "vous@gmail.com",
+    "public_url": "https://jarvis.mondomaine.fr"
+  }
+}
+```
+
+Puis `sudo systemctl restart jarvis` (ou relancez `python3 server.py`).
+
+Les mêmes réglages existent en variables d'environnement : `JARVIS_GOOGLE_CLIENT_ID`, `JARVIS_GOOGLE_CLIENT_SECRET`, `JARVIS_ALLOWED_EMAILS`, `JARVIS_PUBLIC_URL`.
+
+### 3. Ce qui se passe ensuite
+
+- Un visiteur non connecté est **redirigé vers Google**, même s'il connaît l'adresse de votre serveur.
+- Sans session, **aucune** route ne répond : pas la page, pas les scripts, pas les API (401).
+- Une adresse absente de `allowed_emails` est refusée avec un message clair, et un message est écrit dans le journal.
+- Une adresse Google **non vérifiée** est refusée.
+- La session dure 7 jours, avec un cookie `HttpOnly` + `Secure` (en HTTPS) + `SameSite=Lax`.
+- Le bouton **SORTIR** apparaît en haut à droite à côté de votre adresse.
+
+### 4. Vérifier
+
+```bash
+curl -s -o /dev/null -w "%{http_code}\n" https://jarvis.mondomaine.fr/        # attendu : 302
+curl -s https://jarvis.mondomaine.fr/api/status                                # attendu : 401
+```
+
+Puis ouvrez la page dans un navigateur : vous devez passer par Google.
+
+> En mode **Testing**, Google limite à 100 comptes de test et fait expirer les jetons au bout de 7 jours : il suffit de se reconnecter. Pour un usage strictement personnel, ne passez pas en « Published ».
+
 ## Sauvegardes
 
 Trois choses à conserver :
@@ -146,7 +204,7 @@ Trois choses à conserver :
 | Quoi | Où |
 | --- | --- |
 | Vos notes | le dossier `notes_dir` (par défaut `notes/`) |
-| Vos réglages et la clé | `config.json` (droits `600`) |
+| Vos réglages, la clé et la config Google | `config.json` (droits `600`) |
 | L'index | `viewer/graph-data.js` — **généré**, inutile de le sauvegarder |
 
 Exemple de sauvegarde simple :
@@ -162,8 +220,18 @@ tar czf ~/jarvis-sauvegarde-$(date +%F).tar.gz -C /srv/jarvis config.json notes
 | Situation | Ce qu'il faut faire |
 | --- | --- |
 | Juste y accéder depuis ma tablette | **Option A**, Tailscale |
-| Le laisser tourner en permanence sur un VPS | **Option B**, Caddy + mot de passe + `JARVIS_SETTINGS=0` |
+| Le laisser tourner en permanence sur un VPS (OVH) | **Option B** + **connexion Google** |
 | Test rapide via SSH | **Option C**, tunnel |
 | Tout garder sur mon PC | `python3 server.py`, rien d'autre |
 
-Dans tous les cas : **ne jamais** exposer le port 4700 directement sur Internet sans mot de passe.
+Dans tous les cas : **ne jamais** exposer le port 4700 directement sur Internet sans protection (Google ou mot de passe).
+
+### Et sur un VPS OVH ?
+
+Oui, c'est un bon usage, à trois conditions :
+
+1. **Enregistrement DNS** : un `A` qui pointe votre domaine vers l'IP du VPS, sinon Caddy ne peut pas délivrer de certificat.
+2. **Pare-feu** : `sudo ufw allow 22,80,443/tcp` puis `sudo ufw enable`. Le port 4700 reste fermé de l'extérieur, seul le proxy local y accède.
+3. **Connexion Google activée** (section précédente) : c'est ce qui remplace le mot de passe.
+
+Ce que ça apporte : JARVIS disponible en permanence, sans laisser un PC allumé. Ce que ça coûte : vos notes vivent sur la machine louée, donc sauvegardez le dossier de notes et `config.json`, et gardez l'accès SSH par clé.

@@ -132,6 +132,12 @@ body.jarvis-speaking .jarvis-core-beam { opacity: .8; }
 .top-stat small { margin-top: 3px; color: #9aadb9; font: 8.5px var(--mono); letter-spacing: .14em; }
 .icon-button { display: inline-grid; place-items: center; width: 30px; height: 30px; padding: 0; border: 1px solid rgba(155,198,219,.2); border-radius: 8px; background: rgba(4,13,21,.48); color: #c0d0d9; cursor: pointer; transition: .2s ease; }
 .icon-button:hover { color: var(--cyan); border-color: var(--line-bright); background: rgba(44,153,182,.13); }
+.account-chip { display: inline-flex; align-items: center; gap: 7px; height: 28px; padding: 0 8px 0 9px; border: 1px solid rgba(126,232,244,.28); border-radius: 999px; background: rgba(4,13,21,.55); color: #d9f2f8; font: 10px var(--mono); letter-spacing: .04em; }
+.account-chip[hidden] { display: none; }
+.account-dot { width: 6px; height: 6px; border-radius: 50%; background: #73e1c0; box-shadow: 0 0 8px rgba(115,225,192,.8); }
+.account-email { max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.account-logout { padding: 2px 6px; border: 1px solid rgba(148,181,203,.24); border-radius: 999px; color: #b8ccd5; text-decoration: none; font-size: 9px; letter-spacing: .06em; }
+.account-logout:hover { color: var(--cyan); border-color: var(--line-bright); }
 .help-button { width: 26px; height: 26px; border-radius: 50%; font: 11px var(--mono); }
 
 .dashboard-grid { position: relative; z-index: 1; display: grid; grid-template-columns: minmax(220px, 290px) minmax(380px, 1fr) minmax(330px, 420px); gap: 13px; width: min(1780px, 100%); height: calc(100vh - 62px); margin: 0 auto; padding: 12px clamp(14px, 2.2vw, 33px) 16px; }
@@ -501,7 +507,8 @@ button:hover .chevron { color: var(--cyan); transform: translateX(2px); }
   body { background-position: center; }
   .command-topbar { height: 54px; padding-inline: 10px; gap: 8px; }
   .brand { min-width: 0; gap: 7px; }.brand-mark { width: 27px; height: 27px; }.brand-word { font-size: 10px; }.brand-word small { font-size: 7.5px; }
-  .topbar-center { display: none; }.topbar-right { min-width: 0; gap: 11px; }.top-stat { gap: 4px; }.top-stat b { font-size: 10px; }.top-stat small { font-size: 7.5px; }.stat-icon { font-size: 13px; }
+  .topbar-center { display: none; }
+  .account-chip { max-width: 130px; } .account-email { max-width: 74px; }.topbar-right { min-width: 0; gap: 11px; }.top-stat { gap: 4px; }.top-stat b { font-size: 10px; }.top-stat small { font-size: 7.5px; }.stat-icon { font-size: 13px; }
   .dashboard-grid { display: flex; flex-direction: column; gap: 10px; padding: 8px; }
   .center-column { order: 0; width: 100%; min-height: 0; }
   .center-heading { min-height: 54px; align-items: flex-start; flex-direction: column; gap: 8px; padding-inline: 2px; }
