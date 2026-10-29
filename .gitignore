@@ -13,3 +13,6 @@ __pycache__/
 # Aperçus de contrôle générés localement
 /.preview-*
 /data/
+
+# Archive téléchargeable, pas du code
+/JARVIS-app.zip
