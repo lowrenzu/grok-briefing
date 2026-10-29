@@ -103,7 +103,8 @@ AUTH.allowed = ACCESS.emails  # access.json fait foi, même si l'environnement e
 def sync_access() -> None:
     """Après un changement d'administration : la porte suit immédiatement."""
     AUTH.allowed = ACCESS.emails
-NOTES_DIR = resolve_notes_dir(CONFIG.get("notes_dir"))
+# Variable d'environnement prioritaire : pratique en hébergement et pour les tests.
+NOTES_DIR = resolve_notes_dir(os.environ.get("JARVIS_NOTES_DIR") or CONFIG.get("notes_dir"))
 
 # Un espace de notes par compte : chacun son JARVIS, aucun mélange.
 _DATA_DIR = Path(os.environ.get("JARVIS_DATA_DIR") or (ROOT / "data"))
