@@ -4,6 +4,19 @@
 
 Un assistant personnel **local-first** inspiré du *JARVIS Prompt Pack* et de la maquette fournie : hologramme central de JARVIS, cockpit de briefing, profils d'agents et suggestions de démonstration. Il transforme aussi des notes Markdown en galaxie de connaissances, répond à des questions à partir de ces notes, peut parler et retenir de nouveaux souvenirs.
 
+## Installer JARVIS sur le téléphone
+
+JARVIS est une **application web installable** (PWA) : une fois en ligne, il
+s'ajoute à l'écran d'accueil et s'ouvre en plein écran, sans barre d'adresse.
+
+- **iPhone / iPad** (Safari) : bouton **Partager** → *Sur l'écran d'accueil*.
+- **Android** (Chrome) : menu **⋮** → *Installer l'application*.
+
+L'icône est la composition du cœur JARVIS. Le service worker ne met en cache que
+la présentation (styles, images, icônes) : **la page, le graphe et les API
+viennent toujours du réseau**, pour qu'un changement de compte ne puisse jamais
+afficher les notes d'une autre personne.
+
 ## Démarrage rapide
 
 Prérequis : Python 3.10+ et Chrome ou Edge pour la dictée vocale.
@@ -66,3 +79,13 @@ Quand une clé est configurée, le serveur envoie au fournisseur choisi la quest
 - Écrire ou dicter : « **Souviens-toi que…** » pour créer une vraie note et l'ajouter immédiatement à la galaxie.
 
 Les liens du graphe sont détectés quand une note mentionne le titre d'une autre ou partage des liens `[[wikilinks]]`. Les notes sont indexées localement au démarrage; relancez le serveur après avoir ajouté ou modifié des fichiers.
+
+## Tests
+
+```bash
+python3 tests/test_isolation.py
+```
+
+Ce test démarre un JARVIS complet avec un faux fournisseur Google, connecte deux
+personnes différentes, et vérifie que ni les notes, ni les souvenirs, ni le
+graphe, ni la liste des comptes ne passent d'un espace à l'autre.

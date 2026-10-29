@@ -765,18 +765,22 @@ class JarvisHandler(BaseHTTPRequestHandler):
             "/app.js": ROOT / "viewer" / "app.js",
 
             "/assets/command-room.jpg": ROOT / "viewer" / "assets" / "command-room.jpg",
-            "/assets/jarvis-core-ring.png": ROOT / "viewer" / "assets" / "jarvis-core-ring.png",
-            "/assets/jarvis-core-veil.png": ROOT / "viewer" / "assets" / "jarvis-core-veil.png",
-            "/assets/jarvis-core-disc.png": ROOT / "viewer" / "assets" / "jarvis-core-disc.png",
-            "/assets/jarvis-core-light.png": ROOT / "viewer" / "assets" / "jarvis-core-light.png",
-            "/assets/jarvis-core-hud-violet.png": ROOT / "viewer" / "assets" / "jarvis-core-hud-violet.png",
-            "/assets/jarvis-core-hud-ambre.png": ROOT / "viewer" / "assets" / "jarvis-core-hud-ambre.png",
             "/assets/jarvis-core-ring.avif": ROOT / "viewer" / "assets" / f"jarvis-core-ring.avif",
             "/assets/jarvis-core-veil.avif": ROOT / "viewer" / "assets" / f"jarvis-core-veil.avif",
             "/assets/jarvis-core-disc.avif": ROOT / "viewer" / "assets" / f"jarvis-core-disc.avif",
             "/assets/jarvis-core-light.avif": ROOT / "viewer" / "assets" / f"jarvis-core-light.avif",
             "/assets/jarvis-core-hud-violet.avif": ROOT / "viewer" / "assets" / f"jarvis-core-hud-violet.avif",
             "/assets/jarvis-core-hud-ambre.avif": ROOT / "viewer" / "assets" / f"jarvis-core-hud-ambre.avif",
+            # Application installable (PWA) : manifeste, service worker, icônes.
+            "/manifest.webmanifest": ROOT / "viewer" / "manifest.webmanifest",
+            "/sw.js": ROOT / "viewer" / "sw.js",
+            "/favicon.ico": ROOT / "viewer" / "favicon.ico",
+            "/icons/icon-192.png": ROOT / "viewer" / "icons" / "icon-192.png",
+            "/icons/icon-512.png": ROOT / "viewer" / "icons" / "icon-512.png",
+            "/icons/maskable-512.png": ROOT / "viewer" / "icons" / "maskable-512.png",
+            "/icons/apple-touch-icon.png": ROOT / "viewer" / "icons" / "apple-touch-icon.png",
+            "/icons/favicon-48.png": ROOT / "viewer" / "icons" / "favicon-48.png",
+            "/robots.txt": ROOT / "viewer" / "robots.txt",
         }
         if path == "/graph-data.js":
             # Le graphe dépend du compte : jamais le fichier d'un autre.
@@ -809,13 +813,17 @@ class JarvisHandler(BaseHTTPRequestHandler):
             ".jpg": "image/jpeg",
             ".png": "image/png",
             ".avif": "image/avif",
+            ".webmanifest": "application/manifest+json; charset=utf-8",
+            ".ico": "image/x-icon",
+            ".txt": "text/plain; charset=utf-8",
         }.get(asset.suffix, "application/octet-stream")
         self.send_response(HTTPStatus.OK)
         self.send_header("Content-Type", content_type)
         self.send_header("Content-Length", str(len(body)))
         # Le HTML n'est jamais mis en cache ; les ressources portent ?v=… et peuvent
         # donc rester en cache un an : recharger JARVIS ne retélécharge plus les images.
-        if asset.suffix == ".html":
+        if asset.suffix == ".html" or path in {"/sw.js", "/manifest.webmanifest"}:
+            # Le service worker doit pouvoir être mis à jour : jamais figé en cache.
             self.send_header("Cache-Control", "no-store")
         else:
             self.send_header("Cache-Control", "public, max-age=31536000, immutable")

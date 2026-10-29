@@ -1,0 +1,3 @@
+# JARVIS est privé : aucune indexation, aucun archivage automatique.
+User-agent: *
+Disallow: /

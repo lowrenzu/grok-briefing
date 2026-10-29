@@ -2132,3 +2132,13 @@
   else window.addEventListener("resize", resizeCanvas);
   window.requestAnimationFrame(frame);
 })();
+
+  // Application installable : le service worker ne met en cache que la
+  // présentation. Les notes, le graphe et les API viennent toujours du réseau.
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", () => {
+      navigator.serviceWorker.register("/sw.js").catch(() => {
+        /* sans service worker, l'application fonctionne normalement */
+      });
+    });
+  }
