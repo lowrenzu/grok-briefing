@@ -4,7 +4,8 @@ FROM python:3.12-slim
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     JARVIS_HOST=0.0.0.0 \
-    JARVIS_ACCESS_PATH=/data/access.json
+    JARVIS_ACCESS_PATH=/data/access.json \
+    JARVIS_DATA_DIR=/data
 
 WORKDIR /app
 

@@ -1,22 +1,30 @@
 # Déploiement en un clic sur Render (https://render.com).
-# Le service construit le Dockerfile du dépôt et garde access.json sur un disque.
+#
+# ATTENTION : un Blueprint lit toujours `render.yaml` sur la branche PAR DÉFAUT du
+# dépôt (ici `film`), qui ne contient pas la version courante de l'application.
+# Ce fichier sert donc de référence / de secours, pas de raccourci.
+# La méthode qui marche aujourd'hui : créer le service à la main (voir
+# DEPLOY-RAPIDE.md), en choisissant explicitement la branche à déployer.
+#
+# Ce fichier décrit la formule GRATUITE : aucun disque, donc rien n'est conservé
+# d'un redémarrage à l'autre (voir la variante payante en bas).
 services:
   - type: web
     name: jarvis
     runtime: docker
-    plan: starter
+    plan: free
+    region: frankfurt
     dockerfilePath: ./Dockerfile
     healthCheckPath: /api/session
-    disk:
-      name: jarvis-data
-      mountPath: /data
-      sizeGB: 1
     envVars:
-      # À renseigner dans le tableau de bord Render (Environment).
+      # À renseigner dans le tableau de bord Render (Environment). `sync: false`
+      # signifie « valeur secrète, saisie à la main, jamais dans ce fichier ».
       - key: JARVIS_GOOGLE_CLIENT_ID
         sync: false
       - key: JARVIS_GOOGLE_CLIENT_SECRET
         sync: false
+      # Les deux adresses, séparées par une virgule : sans disque, cette liste
+      # est la seule qui survit aux redémarrages.
       - key: JARVIS_ALLOWED_EMAILS
         sync: false
       - key: JARVIS_ADMIN_EMAIL
@@ -24,8 +32,26 @@ services:
       # Adresse publique du service, par exemple https://jarvis-xxxx.onrender.com
       - key: JARVIS_PUBLIC_URL
         sync: false
+      # Repli de la liste d'accès : sans disque, /data est effacé à chaque
+      # redémarrage, et c'est cette variable qui remet les comptes en place.
       - key: JARVIS_ACCESS_PATH
         value: /data/access.json
       - key: JARVIS_HOST
         value: 0.0.0.0
+      # Tout ce qui est écrit (préférences, notes des invités) va dans /data :
+      # c'est là que se monte le disque, sur la formule payante.
+      - key: JARVIS_DATA_DIR
+        value: /data
       # PORT n'est pas fixé ici : Render l'injecte lui-même, server.py le lit.
+
+# Variante qui CONSERVE les données (nom, teinte, notes, comptes ajoutés) :
+# passer en plan payant et ajouter un disque.
+#
+#    plan: starter
+#    disk:
+#      name: jarvis-data
+#      mountPath: /data
+#      sizeGB: 1
+#
+# Les formules gratuites de Render n'acceptent pas de disque : tout ce qui est
+# écrit sur le disque est effacé au redémarrage.

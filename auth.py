@@ -107,7 +107,8 @@ class GoogleAuth:
         with self._lock:
             self._prune(now)
             self._sessions[token] = {"email": email, "name": name, "created": now, "last_seen": now}
-        return token, cookie_value(token, SESSION_TTL)
+        # En ligne (https), le cookie ne doit jamais repartir en clair.
+        return token, cookie_value(token, SESSION_TTL, secure=self.public_url.startswith("https"))
 
     def session(self, token: str | None) -> dict[str, Any] | None:
         if not token:

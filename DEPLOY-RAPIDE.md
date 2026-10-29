@@ -41,31 +41,40 @@ le dépôt est public, et un code secret n'a rien à y faire. Tu les trouves :
 
 ## Étape 2 — Créer le service (3 min)
 
-1. En haut à droite : **New +** → **Blueprint**
-2. Choisis le dépôt **`grok-briefing`**
-3. Branche : **`arena/b5439b0b-grok-briefing`**
-4. Render lit le fichier `render.yaml` et affiche un formulaire avec les variables à remplir.
-
-Remplis les cinq champs :
+1. En haut à droite : **New +** → **Web Service**
+2. Onglet **Public Git repository** → colle :
+   `https://github.com/lowrenzu/grok-briefing`
+3. **Branch** : choisis **`arena/b5439b0b-grok-briefing`**
+   ⚠️ **L'étape la plus importante.** Le dépôt a `film` comme branche par défaut,
+   et cette branche ne contient **pas** la version actuelle (ni le nom
+   personnalisable, ni la teinte prune). Si le champ reste sur `film`, tout le
+   travail récent manquera.
+4. **Name** : choisis le nom qui apparaîtra dans l'adresse, par exemple
+   `jarvis-lowrenzu` → l'adresse sera `https://jarvis-lowrenzu.onrender.com`.
+   Il doit être unique ; si Render refuse, ajoute un chiffre.
+5. **Region** : **Frankfurt** (le plus proche de la France).
+6. **Language / Runtime** : **Docker**. Rien d'autre à régler (Render trouve le
+   `Dockerfile` tout seul).
+7. **Instance Type** : **Free**.
+8. Descends jusqu'à **Environment Variables** et ajoute ces cinq lignes :
 
 | Variable | Valeur à coller |
 |---|---|
 | `JARVIS_GOOGLE_CLIENT_ID` | ton ID client (voir ci-dessus) |
 | `JARVIS_GOOGLE_CLIENT_SECRET` | ton code secret (voir ci-dessus) |
-| `JARVIS_ALLOWED_EMAILS` | `funk.e.lee@gmail.com` |
+| `JARVIS_ALLOWED_EMAILS` | `funk.e.lee@gmail.com` (l'étape 7 ajoutera Anna ici) |
 | `JARVIS_ADMIN_EMAIL` | `funk.e.lee@gmail.com` |
 | `JARVIS_PUBLIC_URL` | laisse **vide** pour l'instant (on la met à l'étape 4) |
+
+9. **Health Check Path** (facultatif) : `/api/session`
+10. **Create Web Service**
 
 > Ces valeurs restent **chez l'hébergeur**, jamais dans le code. Ne les colle
 > dans aucun fichier du dépôt : il est public, et GitHub refuserait l'envoi.
 
-5. **Apply** / **Create**
-
-> **Si le bouton Blueprint n'existe pas dans ton interface** : **New +** →
-> **Web Service** → onglet **Public Git repository** → colle
-> `https://github.com/lowrenzu/grok-briefing` → branche
-> `arena/b5439b0b-grok-briefing` → **Runtime : Docker** → puis les mêmes
-> variables dans **Environment**.
+> **Pourquoi pas le bouton « Blueprint » ?** Il lit toujours `render.yaml` sur la
+> branche par défaut du dépôt, qui est en retard. La création à la main est le
+> seul chemin sûr aujourd'hui.
 
 ---
 
@@ -125,7 +134,15 @@ Deux endroits, comme prévu :
 
 1. **Google** → <https://console.cloud.google.com/auth/audience?hl=fr> →
    **Utilisateurs tests** → **Ajouter des utilisateurs** → son adresse Gmail
-2. **JARVIS** → ⚙ **Réglages** → **Accès** → son adresse → **Ajouter**
+2. **Render** → **Environment** → ajoute son adresse à `JARVIS_ALLOWED_EMAILS`,
+   séparée par une virgule : `funk.e.lee@gmail.com,anna@exemple.com`
+   (sans disque payant, c'est cette variable qui garde son accès après un
+   redémarrage ; l'écran ⚙ Réglages → Accès fonctionne aussi, mais son ajout
+   serait perdu au redémarrage suivant).
+
+   C'est aussi de là que vient le nom de chacun : elle choisira « Cortex » et la
+   teinte prune dans **⚙ Réglages**, et toi tu garderas « JARVIS » en bleu.
+   Sur la formule gratuite, ce choix est à refaire après un redémarrage.
 
 ---
 
@@ -133,8 +150,8 @@ Deux endroits, comme prévu :
 
 | Formule | Prix | Ce que ça change |
 |---|---|---|
-| **Gratuit** | 0 € | Le service s'endort après 15 min sans visite (30 s de réveil à la première ouverture). La liste d'accès revient à son état de départ à chaque redémarrage : **toi tu restes admin**, mais Anna serait à re-ajouter. |
-| **Starter** (+ disque 1 Go) | environ 7 €/mois | Ne s'endort jamais, et la liste d'accès est conservée définitivement. |
+| **Gratuit** | 0 € | Le service s'endort après 15 min sans visite (≈ 1 min de réveil à la première ouverture). Rien n'est écrit durablement : la liste d'accès revient à celle des variables d'environnement, et le **nom et la teinte choisis sont à re-choisir** après un redémarrage. |
+| **Starter** (+ disque 1 Go) | environ 7 €/mois | Ne s'endort jamais, et tout est conservé : comptes ajoutés, noms, teintes, notes. |
 
 Pour « un projet pour voir », **commence par le gratuit**. Tu passeras au payant
 si l'outil te sert vraiment.
