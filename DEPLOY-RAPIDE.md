@@ -88,6 +88,23 @@ le dépôt est public, et un code secret n'a rien à y faire. Tu les trouves :
 
 ---
 
+### Pourquoi les identifiants vont ici et pas dans la page /setup
+
+JARVIS sait aussi se configurer tout seul, par une page `/setup` : on y colle ses
+identifiants et le serveur écrit un fichier `config.json`. C'est la bonne méthode
+sur un serveur avec disque (VPS, Render Starter).
+
+**Ici, non.** La formule gratuite n'a pas de disque : ce fichier serait effacé au
+premier redémarrage, la page reviendrait avec un nouveau code, et il faudrait
+recommencer indéfiniment. D'où les cinq variables ci-dessus : le serveur les
+considère comme une configuration complète, et n'affiche jamais `/setup`.
+
+Corollaire à accepter : **le nom, la teinte et les notes ajoutées depuis
+l'application repartent à zéro à chaque réveil du service.** Pour les conserver,
+il faut un disque (7 €/mois) ou le serveur d'Anna.
+
+---
+
 ## Étape 3 — Attendre la construction (5 min)
 
 Render affiche des lignes de log qui défilent. Tu attends que le statut passe à

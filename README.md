@@ -32,6 +32,11 @@ venue d'Internet est renvoyée vers `/setup` (l'interface locale, elle, reste
 consultable). Les secrets ne passent donc par aucune conversation, aucun
 fichier partagé, aucun message.
 
+**Hébergeur sans disque (Render gratuit) : utilisez plutôt l'environnement.**
+Si `JARVIS_GOOGLE_CLIENT_ID` et `JARVIS_GOOGLE_CLIENT_SECRET` sont définies, le
+serveur considère la configuration comme faite et n'affiche jamais `/setup` — un
+`config.json` écrit par la page serait de toute façon effacé au redémarrage.
+
 ## Si la configuration est incomplète
 
 Dès que les identifiants Google sont présents, JARVIS **ferme** l'accès. Une liste

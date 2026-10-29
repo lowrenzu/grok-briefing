@@ -112,9 +112,9 @@ def requete(port: int, chemin: str, *, host: str | None = None, donnees: dict | 
     ouvreur = urllib.request.build_opener(*handlers)
     try:
         with ouvreur.open(req, timeout=15) as reponse:
-            return reponse.status, reponse.headers.get("Location", ""), reponse.read(400).decode("utf8", "replace")
+            return reponse.status, reponse.headers.get("Location", ""), reponse.read(8000).decode("utf8", "replace")
     except urllib.error.HTTPError as exc:
-        return exc.code, exc.headers.get("Location", ""), exc.read(400).decode("utf8", "replace")
+        return exc.code, exc.headers.get("Location", ""), exc.read(8000).decode("utf8", "replace")
 
 
 def scenario_reglage() -> None:
@@ -228,10 +228,80 @@ def scenario_config_minimale() -> None:
             proc.kill()
 
 
+def scenario_identifiants_par_environnement() -> None:
+    """Hébergeur sans disque : les identifiants viennent de l'environnement.
+
+    C'est le cas de Render gratuit, où config.json ne survit pas. La page
+    /setup n'a alors aucun sens : elle serait effacée au réveil suivant.
+    """
+    port = port_libre()
+    donnees = Path(tempfile.mkdtemp(prefix="jarvis-setup-env-"))
+    proc, app = demarrer(
+        port, donnees,
+        JARVIS_GOOGLE_CLIENT_ID="123456789000-envtest00000000000000000000.apps.googleusercontent.com",
+        JARVIS_GOOGLE_CLIENT_SECRET="secret-d-environnement-pour-le-test",
+        JARVIS_ALLOWED_EMAILS="moi@exemple.fr",
+        JARVIS_ADMIN_EMAIL="moi@exemple.fr",
+        JARVIS_PUBLIC_URL="https://mon-service.exemple.fr",
+    )
+    try:
+        code, lieu, _ = requete(port, "/", host=PUBLIC)
+        verifier("env : pas de mur vers /setup", code == 302 and "login" in lieu, f"{code} {lieu}")
+        code, _, _ = requete(port, "/setup", host=PUBLIC)
+        verifier("env : /setup est fermé (déjà configuré)", code == 410, str(code))
+        code, _, _ = requete(port, "/api/status", host=PUBLIC)
+        verifier("env : les données restent protégées", code == 401, str(code))
+        code, _, _ = requete(port, "/api/session", host=PUBLIC)
+        verifier("env : le contrôle de santé passe", code == 200, str(code))
+        verifier("env : aucun code d'installation n'est créé",
+                 not (donnees / "data" / "setup-token.txt").exists())
+        verifier("env : aucun config.json n'est écrit", not (app / "config.json").exists())
+    finally:
+        proc.terminate()
+        try:
+            proc.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+
+
+def scenario_environnement_sans_adresse() -> None:
+    """Identifiants en environnement mais liste d'adresses vide : on ferme.
+
+    Le serveur ne doit jamais se rabattre sur un accès ouvert : il renvoie vers
+    la page de connexion, qui explique le problème.
+    """
+    port = port_libre()
+    donnees = Path(tempfile.mkdtemp(prefix="jarvis-setup-env-vide-"))
+    proc, _app = demarrer(
+        port, donnees,
+        JARVIS_GOOGLE_CLIENT_ID="123456789000-envtest00000000000000000000.apps.googleusercontent.com",
+        JARVIS_GOOGLE_CLIENT_SECRET="secret-d-environnement-pour-le-test",
+        JARVIS_ALLOWED_EMAILS="",
+    )
+    try:
+        code, lieu, _ = requete(port, "/", host=PUBLIC)
+        verifier("env sans adresse : porte fermée", code == 302 and "login" in lieu, f"{code} {lieu}")
+        code, _, _ = requete(port, "/api/status", host=PUBLIC)
+        verifier("env sans adresse : données refusées", code == 401, str(code))
+        code, _, corps = requete(port, "/auth/login", host=PUBLIC)
+        verifier("env sans adresse : la page explique", code == 200 and "adresse" in corps.lower(),
+                 str(code))
+        code, _, _ = requete(port, "/api/session", host=PUBLIC)
+        verifier("env sans adresse : contrôle de santé actif", code == 200, str(code))
+    finally:
+        proc.terminate()
+        try:
+            proc.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+
+
 def main() -> int:
     try:
         scenario_reglage()
         scenario_config_minimale()
+        scenario_identifiants_par_environnement()
+        scenario_environnement_sans_adresse()
         scenario_developpement()
     except Exception as exc:  # noqa: BLE001
         print(f"ÉCHEC du harnais : {type(exc).__name__}: {exc}")

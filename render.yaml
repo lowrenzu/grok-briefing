@@ -8,6 +8,12 @@
 #
 # Ce fichier décrit la formule GRATUITE : aucun disque, donc rien n'est conservé
 # d'un redémarrage à l'autre (voir la variante payante en bas).
+#
+# CONSÉQUENCE IMPORTANTE : sur une formule sans disque, n'utilisez PAS la page
+# /setup. Le config.json qu'elle écrit serait effacé au redémarrage suivant, et
+# la page reviendrait avec un nouveau code. Les identifiants doivent venir des
+# variables d'environnement ci-dessous : le serveur les reconnaît comme une
+# configuration valide (voir Setup.from_environment dans setup.py).
 services:
   - type: web
     name: jarvis

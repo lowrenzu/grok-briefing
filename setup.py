@@ -71,8 +71,28 @@ class Setup:
         self._attempts = 0
 
     # --- état -------------------------------------------------------------
+    def from_environment(self) -> bool:
+        """Vrai quand les identifiants viennent des variables d'environnement.
+
+        Cas des hébergeurs sans disque (Render gratuit) : config.json ne survit
+        pas à un redémarrage, donc la configuration doit venir de l'environnement.
+        Dans ce cas, la page /setup n'a plus de raison d'être : elle serait
+        remise à zéro à chaque réveil du service.
+        """
+        return bool(
+            (os.environ.get("JARVIS_GOOGLE_CLIENT_ID") or "").strip()
+            and (os.environ.get("JARVIS_GOOGLE_CLIENT_SECRET") or "").strip()
+        )
+
     def pending(self) -> bool:
-        """Vrai tant qu'aucun identifiant Google n'est enregistré."""
+        """Vrai tant qu'aucun identifiant Google n'est disponible.
+
+        Deux sources valables : config.json (saisi par la page /setup, pour un
+        serveur avec disque) ou les variables d'environnement (hébergeur sans
+        disque). Si l'une des deux est renseignée, le premier réglage est fait.
+        """
+        if self.from_environment():
+            return False
         try:
             data = json.loads(self.config_path.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError):
