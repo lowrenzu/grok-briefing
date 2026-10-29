@@ -32,6 +32,10 @@ import prefs as prefs_module
 import setup as setup_module
 import voice as voice_module
 
+# Version lisible de l'installation : affichée dans les réglages, pour savoir
+# d'un coup d'œil quelle copie tourne réellement sur l'ordinateur.
+VERSION = "2026.10.29"
+
 CONFIG_PATH = ROOT / "config.json"
 MAX_BODY_BYTES = 24_000
 MAX_HISTORY_MESSAGES = 10
@@ -1001,6 +1005,8 @@ color:#04222b;font-weight:700;text-decoration:none}}
             notes, _graph = current_state(actor)
             is_demo = notes_are_demo(actor)
             return self.send_json({
+                "version": VERSION,
+                "neuralVoice": voice_module.disponible(),
                 "noteCount": len(notes),
                 "aiConfigured": AI.configured,
                 "provider": AI.provider if AI.configured else None,

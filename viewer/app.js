@@ -1318,6 +1318,20 @@
     }
   }
 
+  // Bandeau des réglages : quelle version tourne, et si la voix naturelle est
+  // installée. Sans ça, impossible de distinguer une vieille copie d'une panne.
+  function afficherVersion(version, voixNaturelle) {
+    const zone = $("#settingsBuild");
+    if (!zone) return;
+    const numero = version ? `version ${version}` : "version inconnue";
+    if (voixNaturelle) {
+      zone.innerHTML = `<b>${numero}</b> · voix naturelle installée.`;
+      return;
+    }
+    zone.innerHTML = `<b>${numero}</b> · <span class="build-warn">voix de Windows seulement</span> : `
+      + "double-cliquez une fois sur <b>INSTALLER-APPLICATION.bat</b> pour la voix naturelle.";
+  }
+
   async function loadStatus() {
     try {
       const response = await fetch("/api/status", { headers: { Accept: "application/json" } });
@@ -1333,6 +1347,7 @@
         ? `Extraits pertinents envoyés à ${status.providerLabel || "l’IA"}`
         : "Vos notes restent sur cet appareil";
       $("#buildLabel").textContent = aiReady ? "IA PRIVÉE PAR LE SERVEUR" : "LOCAL FIRST";
+      afficherVersion(status.version, status.neuralVoice);
       if (status.isDemo) {
         graphStatus.textContent = "Exemples fictifs — remplacez-les par vos notes";
         $("#graphSubheading").textContent = `${graph.nodes.length} notes de démonstration indexées. Vous pourrez les remplacer par vos propres fichiers Markdown.`;
@@ -1444,7 +1459,7 @@
 
   // Point d'accroche réservé aux tests automatiques : jamais actif en usage réel.
   if (window.__JARVIS_TESTS__) {
-    window.JARVIS_TEST = { pickFrenchVoice, noterVoix, decouperEnPhrases };
+    window.JARVIS_TEST = { pickFrenchVoice, noterVoix, decouperEnPhrases, afficherVersion };
   }
 
   function withVoices(callback) {

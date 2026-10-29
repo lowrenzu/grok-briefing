@@ -661,3 +661,18 @@ button:hover .chevron { color: var(--cyan); transform: translateX(2px); }
   color: var(--a6);
   border-bottom-color: var(--a6);
 }
+
+/* Version et état de la voix : de quoi vérifier d'un coup d'œil quelle copie
+   de JARVIS tourne réellement, sans ouvrir un terminal. */
+.settings-build {
+  margin: .2rem 0 1rem;
+  padding: .55rem .7rem;
+  font-size: .78rem;
+  line-height: 1.45;
+  color: var(--muted, #8fa6b2);
+  background: rgba(126, 232, 244, .05);
+  border: 1px solid rgba(126, 232, 244, .14);
+  border-radius: .5rem;
+}
+.settings-build b { color: var(--ink, #e8f8fc); font-weight: 600; }
+.settings-build .build-warn { color: #f0c674; }

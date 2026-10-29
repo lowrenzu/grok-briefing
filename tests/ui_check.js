@@ -115,6 +115,27 @@ prune.click();
 check("teinte fixe après le mode auto", document.documentElement.dataset.accent === "prune");
 check("teinte fixe mémorisée", window.localStorage.getItem("jarvis-accent") === "prune");
 
+// --- bandeau version et voix ----------------------------------------------
+{
+  const essaiVersion = boot({ tests: true });
+  const zone = essaiVersion.document.querySelector("#settingsBuild");
+  check("un bandeau version existe dans les réglages", !!zone);
+  const outilsVersion = essaiVersion.window.JARVIS_TEST;
+
+  // Sans voix naturelle : JARVIS doit l'avouer et indiquer le remède.
+  outilsVersion.afficherVersion("2026.10.29", false);
+  const texteKo = zone.textContent;
+  check("version affichée", texteKo.includes("2026.10.29"));
+  check("absence de voix naturelle annoncée", /voix de Windows/i.test(texteKo));
+  check("le remède est indiqué", texteKo.includes("INSTALLER-APPLICATION.bat"));
+
+  // Avec la voix naturelle : simple constat, aucune alerte.
+  outilsVersion.afficherVersion("2026.10.29", true);
+  const texteOk = zone.textContent;
+  check("voix naturelle annoncée", /voix naturelle installée/i.test(texteOk));
+  check("aucune alerte quand tout va bien", !/INSTALLER-APPLICATION/.test(texteOk));
+}
+
 // --- voix : la moins robotique possible ------------------------------------
 {
   const VOCABULAIRE = { name: "Microsoft Hortense - French (France)", lang: "fr-FR", localService: true };
