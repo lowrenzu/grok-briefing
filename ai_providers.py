@@ -27,6 +27,7 @@ REQUEST_TIMEOUT = 45
 # standard de fait, aussi parlé par Ollama, LM Studio et OpenRouter).
 PROVIDERS: dict[str, dict[str, Any]] = {
     "anthropic": {
+        "default_model": "claude-sonnet-5-5",
         "label": "Anthropic (Claude)",
         "kind": "anthropic",
         "url": "https://api.anthropic.com/v1/messages",
@@ -36,6 +37,7 @@ PROVIDERS: dict[str, dict[str, Any]] = {
         "hint": "Clé « sk-ant-… » créée dans la console Anthropic.",
     },
     "openai": {
+        "default_model": "gpt-4o-mini",
         "label": "OpenAI (GPT)",
         "kind": "openai",
         "url": "https://api.openai.com/v1/chat/completions",
@@ -45,6 +47,7 @@ PROVIDERS: dict[str, dict[str, Any]] = {
         "hint": "Clé « sk-… » créée dans la plateforme OpenAI.",
     },
     "mistral": {
+        "default_model": "mistral-small-latest",
         "label": "Mistral AI",
         "kind": "openai",
         "url": "https://api.mistral.ai/v1/chat/completions",
@@ -54,6 +57,7 @@ PROVIDERS: dict[str, dict[str, Any]] = {
         "hint": "Clé créée dans la console Mistral.",
     },
     "groq": {
+        "default_model": "llama-3.3-70b-versatile",
         "label": "Groq (rapide)",
         "kind": "openai",
         "url": "https://api.groq.com/openai/v1/chat/completions",
@@ -63,6 +67,7 @@ PROVIDERS: dict[str, dict[str, Any]] = {
         "hint": "Clé « gsk_… » créée dans la console Groq.",
     },
     "ollama": {
+        "default_model": "llama3.2",
         "label": "Ollama (sur votre PC)",
         "kind": "openai",
         "url": "http://127.0.0.1:11434/v1/chat/completions",
@@ -72,6 +77,7 @@ PROVIDERS: dict[str, dict[str, Any]] = {
         "hint": "Gratuit et hors ligne. Lancez « ollama serve » puis choisissez un modèle installé.",
     },
     "custom": {
+        "default_model": "",
         "label": "Autre service (compatible OpenAI)",
         "kind": "openai",
         "url": "",
@@ -159,9 +165,10 @@ class AiSettings:
             if provider not in PROVIDERS:
                 provider = DEFAULT_PROVIDER
             spec = PROVIDERS[provider]
-            model = str(raw.get("model") or DEFAULT_MODEL).strip()
+            fallback = str(spec.get("default_model") or DEFAULT_MODEL)
+            model = str(raw.get("model") or fallback).strip()
             if not MODEL_PATTERN.fullmatch(model):
-                model = DEFAULT_MODEL
+                model = fallback
             key = str(raw.get("api_key") or "").strip()
             if key.casefold() in PLACEHOLDER_KEYS:
                 key = ""
@@ -235,7 +242,14 @@ class AiSettings:
             "keyFromEnv": env,
             "configured": self.configured,
             "providers": [
-                {"id": name, "label": spec["label"], "needsKey": spec["needs_key"]}
+                {
+                    "id": name,
+                    "label": spec["label"],
+                    "needsKey": spec["needs_key"],
+                    "defaultModel": spec.get("default_model") or "",
+                    "keyUrl": spec["key_url"],
+                    "hint": spec["hint"],
+                }
                 for name, spec in PROVIDERS.items()
             ],
         }

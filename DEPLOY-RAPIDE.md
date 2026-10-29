@@ -160,3 +160,35 @@ si l'outil te sert vraiment.
 3. les **10 dernières lignes** de **Logs** dans Render.
 
 Avec ça, je corrige sans te faire deviner.
+
+---
+
+## Brancher l'IA (facultatif, mais c'est là que JARVIS devient vivant)
+
+Sans clé, JARVIS cherche des mots-clés dans vos notes. Avec une clé, il **comprend**
+la question et rédige une vraie réponse à partir de vos notes.
+
+### Le choix le plus simple : Groq (gratuit, sans carte bancaire)
+
+1. <https://console.groq.com/keys> → créez un compte (Google, GitHub ou e-mail).
+2. **Create API Key** → copiez la clé, elle commence par `gsk_`.
+3. Dans JARVIS → ⚙ **Réglages** → service **Groq (rapide)** → collez la clé → **Tester** → **Enregistrer**.
+
+Le modèle est pré-rempli (`llama-3.3-70b-versatile`). Gratuit : 1 000 requêtes par
+jour, largement suffisant pour un usage personnel.
+
+### Les autres options
+
+| Service | Modèle pré-rempli | À savoir |
+|---|---|---|
+| **Anthropic (Claude)** | `claude-sonnet-5-5` | La meilleure qualité de rédaction. Carte bancaire requise, facturé à l'usage (quelques centimes par mois pour un usage perso). <https://console.anthropic.com/settings/keys> |
+| **Mistral AI** | `mistral-small-latest` | Entreprise française, offre gratuite d'expérimentation. <https://console.mistral.ai/api-keys> |
+| **OpenAI** | `gpt-4o-mini` | Carte bancaire requise. <https://platform.openai.com/api-keys> |
+| **Ollama** | `llama3.2` | 100 % local et gratuit, mais il faut un ordinateur qui fait tourner Ollama : inadapté à un petit serveur. |
+
+Le bouton **Tester**, dans le panneau, vérifie la clé sans rien enregistrer en cas d'erreur.
+
+### Où vit la clé
+
+Dans `config.json`, sur le serveur, en droits `600` — jamais dans le navigateur,
+jamais dans le dépôt. Le panneau n'affiche que ses quatre derniers caractères.

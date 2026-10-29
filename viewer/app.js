@@ -1822,12 +1822,15 @@
   function syncProviderFields() {
     const choice = $("#settingsProvider").value;
     const spec = selectedProvider(choice);
-    // Le modèle d'un service ne fonctionne pas chez un autre : on vide le champ hérité.
-    if (settingsState && choice !== settingsState.provider && $("#settingsModel").value === settingsState.model) {
-      $("#settingsModel").value = "";
-      $("#settingsModel").placeholder = choice === "ollama"
-        ? "ex. llama3.2 (ollama list)"
-        : "nom exact du modèle";
+    // Le modèle d'un service ne fonctionne pas chez un autre : on pré-remplit avec
+    // celui du service choisi, pour éviter d'avoir à recopier un nom exact.
+    const modelField = $("#settingsModel");
+    if (settingsState && choice !== settingsState.provider
+        && (modelField.value === settingsState.model || !modelField.value.trim())) {
+      modelField.value = spec.defaultModel || "";
+      modelField.placeholder = spec.defaultModel
+        ? spec.defaultModel
+        : (choice === "ollama" ? "ex. llama3.2 (ollama list)" : "nom exact du modèle");
     }
     // L'adresse n'est modifiable que pour les services libres (Ollama, compatible
     // OpenAI) ou pour le fournisseur enregistré s'il autorise une adresse maison.
