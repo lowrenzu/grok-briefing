@@ -127,3 +127,58 @@ class Preferences:
             "maxLength": NAME_MAX_LENGTH,
             "accents": [item for item in ACCENTS if item],
         }
+
+
+# --- Icône du compte -------------------------------------------------------
+# Un SVG plutôt qu'une image : net à toutes les tailles, et aucune dépendance
+# de dessin côté serveur. Le navigateur peut l'utiliser comme icône installée.
+ACCENT_PALETTE = {
+    "":      {"core": "#7de7f5", "edge": "#3dc9e7", "glow": "#d8feff"},
+    "violet": {"core": "#c9a8ff", "edge": "#8c6ee1", "glow": "#ece2ff"},
+    "ambre":  {"core": "#f0c987", "edge": "#cda55f", "glow": "#fff3d6"},
+    "prune":  {"core": "#d79ad0", "edge": "#a568a2", "glow": "#f7daf4"},
+}
+
+
+def initials(name: str, default: str = DEFAULT_NAME) -> str:
+    """Une à deux lettres pour l'icône : « Cortex » → « C », « Mon Œil » → « MŒ »."""
+    source = (name or default).strip() or default
+    words = [w for w in source.split() if w]
+    if len(words) >= 2:
+        return (words[0][0] + words[1][0]).upper()
+    word = words[0]
+    return word[:1].upper() if len(word) == 1 else word[:1].upper()
+
+
+def icon_svg(name: str, accent: str) -> str:
+    """Icône carrée : anneau lumineux et initiale du nom."""
+    colors = ACCENT_PALETTE.get(accent, ACCENT_PALETTE[""])
+    letters = initials(name)
+    size = 512
+    centre = size / 2
+    # Deux lettres demandent une taille de police plus modeste.
+    font = 210 if len(letters) == 1 else 150
+    return f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {size} {size}" role="img" aria-label="{xml_escape(name or DEFAULT_NAME)}">
+  <defs>
+    <radialGradient id="halo" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="{colors['glow']}" stop-opacity=".55"/>
+      <stop offset="55%" stop-color="{colors['core']}" stop-opacity=".18"/>
+      <stop offset="100%" stop-color="{colors['core']}" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="{size}" height="{size}" fill="#070b12"/>
+  <circle cx="{centre}" cy="{centre}" r="196" fill="url(#halo)"/>
+  <circle cx="{centre}" cy="{centre}" r="186" fill="none" stroke="{colors['edge']}" stroke-width="10" stroke-opacity=".85"/>
+  <circle cx="{centre}" cy="{centre}" r="160" fill="none" stroke="{colors['core']}" stroke-width="3" stroke-opacity=".55"/>
+  <circle cx="{centre}" cy="{centre}" r="206" fill="none" stroke="{colors['core']}" stroke-width="2" stroke-opacity=".22"/>
+  <text x="{centre}" y="{centre}" text-anchor="middle" dominant-baseline="central"
+        font-family="Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif"
+        font-size="{font}" font-weight="600" letter-spacing="4"
+        fill="{colors['glow']}">{xml_escape(letters)}</text>
+</svg>
+"""
+
+
+def xml_escape(value: str) -> str:
+    return (value.replace("&", "&amp;").replace("<", "&lt;")
+                 .replace(">", "&gt;").replace('"', "&quot;"))

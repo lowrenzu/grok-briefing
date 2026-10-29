@@ -9,7 +9,8 @@ Un assistant personnel **local-first** inspiré du *JARVIS Prompt Pack* et de la
 Dans **Réglages → Identité**, chaque compte choisit :
 
 - le **nom affiché** (24 caractères au plus) — il remplace « JARVIS » partout :
-  marque, titre de l'onglet, placeholder du chat, messages d'attente ;
+  marque, titre de l'onglet, placeholder du chat, messages d'attente, réponses de
+  l'assistant (« Je suis Cortex… »), **icône et nom de l'application installée** ;
 - la **teinte d'accent** : Bleu JARVIS, Violet, Ambre ou Prune.
 
 Ces préférences sont **propres à chaque compte** : Anna peut appeler son JARVIS

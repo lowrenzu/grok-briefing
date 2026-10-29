@@ -351,8 +351,12 @@ def score_notes(query: str, notes: list[dict[str, Any]]) -> list[tuple[int, dict
     return results
 
 
-def is_small_talk(question: str) -> bool:
+def is_small_talk(question: str, name: str = prefs_module.DEFAULT_NAME) -> bool:
     normalized = normalize(question).strip()
+    # « Salut Cortex » doit être reconnu comme « Salut JARVIS ».
+    custom = normalize(name)
+    if custom and custom != "jarvis":
+        normalized = normalized.replace(custom, "jarvis").strip()
     return normalized in SMALL_TALK or normalized in {"salut jarvis", "bonjour monsieur", "merci pour ton aide"}
 
 
@@ -361,7 +365,8 @@ def is_summary_request(question: str) -> bool:
     return bool(query_words & SUMMARY_TERMS) or "mes notes" in normalize(question) and len(query_words) <= 5
 
 
-def local_answer(question: str, relevant: list[dict[str, Any]]) -> str:
+def local_answer(question: str, relevant: list[dict[str, Any]],
+                 name: str = prefs_module.DEFAULT_NAME) -> str:
     if not relevant:
         return "Je n’ai pas trouvé de note pertinente, monsieur. Ajoutez un fichier Markdown ou donnez-moi un sujet déjà présent dans votre mémoire."
     if len(relevant) == 1:
@@ -371,17 +376,17 @@ def local_answer(question: str, relevant: list[dict[str, Any]]) -> str:
             excerpt = excerpt[:357].rsplit(" ", 1)[0] + "…"
         return f"J’ai trouvé une piste dans « {note['label']} », monsieur : {excerpt}"
     titles = ", ".join(f"« {note['label']} »" for note in relevant[:4])
-    return f"J’ai repéré {len(relevant)} notes qui semblent pertinentes, monsieur : {titles}. Ouvrez les sources ci-dessous pour les examiner; une clé Anthropic permettra à JARVIS de les synthétiser."
+    return f"J’ai repéré {len(relevant)} notes qui semblent pertinentes, monsieur : {titles}. Ouvrez les sources ci-dessous pour les examiner; une clé IA permettra à {name} de les synthétiser."
 
 
-def small_talk_answer(question: str) -> str:
+def small_talk_answer(question: str, name: str = prefs_module.DEFAULT_NAME) -> str:
     normalized = normalize(question)
     if normalized.startswith("merci"):
         return "À votre service, monsieur. Les remerciements sont facultatifs; le bon goût, lui, ne l’est pas."
     if "blague" in normalized or "rire" in normalized:
         return "Pourquoi les développeurs aiment-ils le café ? Parce qu’il corrige leurs bugs… enfin, il les rend simplement plus rapides à écrire, monsieur."
     if normalized.startswith("qui es tu"):
-        return "Je suis JARVIS, votre majordome numérique : je range vos notes en constellations et je fais mine de ne pas remarquer les dossiers nommés « Nouveau dossier 7 »."
+        return f"Je suis {name}, votre majordome numérique : je range vos notes en constellations et je fais mine de ne pas remarquer les dossiers nommés « Nouveau dossier 7 »."
     if normalized in {"bonjour", "bonjour jarvis", "salut", "salut jarvis", "coucou", "hello", "hello jarvis"}:
         return "Bonjour, monsieur. Je suis à votre service — et je ne juge pas l’heure à laquelle vous ouvrez vos notes."
     if normalized in {"bonne nuit", "bonsoir", "bonsoir jarvis"}:
@@ -389,14 +394,23 @@ def small_talk_answer(question: str) -> str:
     return "Toujours opérationnel, monsieur. Je n’ai pas de pouls, mais l’indexation est excellente."
 
 
-def make_system_prompt(relevant: list[dict[str, Any]]) -> str:
+def display_name(actor: str) -> str:
+    """Nom que ce compte a donné à son assistant (« JARVIS » par défaut)."""
+    try:
+        return PREFS.read(actor)["name"] or prefs_module.DEFAULT_NAME
+    except Exception:
+        return prefs_module.DEFAULT_NAME
+
+
+def make_system_prompt(relevant: list[dict[str, Any]], name: str = prefs_module.DEFAULT_NAME) -> str:
     references = [
         {"index": note["id"], "titre": note["label"], "contenu": note["content"][:6000]}
         for note in relevant[:6]
     ]
     context = json.dumps(references, ensure_ascii=False)
     return (
-        "Tu es JARVIS, le majordome numérique personnel de l’utilisateur. Réponds en français sauf si l’utilisateur parle clairement une autre langue. "
+        f"Tu es {name}, le majordome numérique personnel de l’utilisateur. Réponds en français sauf si l’utilisateur parle clairement une autre langue. "
+        f"Si on te demande ton nom, réponds « {name} ». "
         "Tu es impeccablement poli, calme, avec un humour pince-sans-rire; adresse-toi à l’utilisateur par « monsieur » de temps en temps, jamais à chaque phrase. "
         "Réponds de façon concise, généralement en une à trois phrases, avec une pointe d’esprit quand elle est naturelle. "
         "Pour les questions sur les notes, réponds UNIQUEMENT à partir des références ci-dessous. Si elles ne couvrent pas la question, dis-le franchement et n’invente aucun fait. "
@@ -406,9 +420,10 @@ def make_system_prompt(relevant: list[dict[str, Any]]) -> str:
     )
 
 
-def call_ai(question: str, relevant: list[dict[str, Any]], history: list[dict[str, str]]) -> str:
+def call_ai(question: str, relevant: list[dict[str, Any]], history: list[dict[str, str]],
+            name: str = prefs_module.DEFAULT_NAME) -> str:
     """Envoie la question au fournisseur choisi dans les Réglages."""
-    return ai_providers.ask(question, make_system_prompt(relevant), history, AI)
+    return ai_providers.ask(question, make_system_prompt(relevant, name), history, AI)
 
 
 def get_session(session_id: str | None) -> tuple[str, dict[str, Any], bool]:
@@ -470,9 +485,10 @@ def current_user(handler: BaseHTTPRequestHandler) -> dict[str, Any] | None:
 
 def chat_handler(question: str, session: dict[str, Any], actor: str = workspaces_module.LOCAL_ACTOR) -> dict[str, Any]:
     notes, _graph = current_state(actor)
+    name = display_name(actor)
     question = question.strip()
-    if is_small_talk(question):
-        answer = small_talk_answer(question)
+    if is_small_talk(question, name):
+        answer = small_talk_answer(question, name)
         return {"answer": answer, "nodes": [], "localMode": True}
 
     history = session.get("history", [])
@@ -489,7 +505,7 @@ def chat_handler(question: str, session: dict[str, Any], actor: str = workspaces
 
     relevant = [note for _score, note in ranked[:6]]
     if not relevant:
-        answer = local_answer(question, [])
+        answer = local_answer(question, [], name)
         _append_history(session, question, answer, [])
         return {"answer": answer, "nodes": [], "localMode": True}
 
@@ -497,14 +513,14 @@ def chat_handler(question: str, session: dict[str, Any], actor: str = workspaces
     warning = None
     if AI.configured:
         try:
-            answer = call_ai(question, relevant, history)
+            answer = call_ai(question, relevant, history, name)
             local_mode = False
         except RuntimeError as exc:
-            answer = local_answer(question, relevant)
+            answer = local_answer(question, relevant, name)
             warning = f"Mode de secours local : {exc}. Vérifiez la clé et le modèle dans Réglages."
             local_mode = True
     else:
-        answer = local_answer(question, relevant)
+        answer = local_answer(question, relevant, name)
         local_mode = True
 
     _append_history(session, question, answer, nodes)
@@ -777,8 +793,8 @@ class JarvisHandler(BaseHTTPRequestHandler):
             "/assets/jarvis-core-light.avif": ROOT / "viewer" / "assets" / f"jarvis-core-light.avif",
             "/assets/jarvis-core-hud-violet.avif": ROOT / "viewer" / "assets" / f"jarvis-core-hud-violet.avif",
             "/assets/jarvis-core-hud-ambre.avif": ROOT / "viewer" / "assets" / f"jarvis-core-hud-ambre.avif",
-            # Application installable (PWA) : manifeste, service worker, icônes.
-            "/manifest.webmanifest": ROOT / "viewer" / "manifest.webmanifest",
+            # Application installable (PWA) : le manifeste est servi plus bas, car il
+            # porte le nom choisi par le compte. L'icône aussi.
             "/sw.js": ROOT / "viewer" / "sw.js",
             "/favicon.ico": ROOT / "viewer" / "favicon.ico",
             "/icons/icon-192.png": ROOT / "viewer" / "icons" / "icon-192.png",
@@ -788,6 +804,54 @@ class JarvisHandler(BaseHTTPRequestHandler):
             "/icons/favicon-48.png": ROOT / "viewer" / "icons" / "favicon-48.png",
             "/robots.txt": ROOT / "viewer" / "robots.txt",
         }
+        if path == "/manifest.webmanifest":
+            # Chaque compte installe SON application : nom et icône lui appartiennent.
+            actor = actor_of(self)
+            values = PREFS.public(actor)
+            name = values["name"]
+            manifest = {
+                "name": f"{name} — Personal Intelligence",
+                "short_name": name[:12],
+                "description": "Votre cockpit personnel : notes, constellations et assistant.",
+                "lang": "fr",
+                "dir": "ltr",
+                "start_url": "/",
+                "scope": "/",
+                "display": "standalone",
+                "orientation": "any",
+                "background_color": "#070b12",
+                "theme_color": "#070b12",
+                "icons": [
+                    {"src": "/icons/account.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any"},
+                    {"src": "/icons/account.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "maskable"},
+                    {"src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any"},
+                    {"src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any"},
+                    {"src": "/icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable"},
+                ],
+            }
+            body = json.dumps(manifest, ensure_ascii=False).encode("utf-8")
+            self.send_response(HTTPStatus.OK)
+            self.send_header("Content-Type", "application/manifest+json; charset=utf-8")
+            self.send_header("Content-Length", str(len(body)))
+            self.send_header("Cache-Control", "no-store")
+            self.end_headers()
+            self.wfile.write(body)
+            return
+
+        if path == "/icons/account.svg":
+            actor = actor_of(self)
+            values = PREFS.read(actor)
+            svg = prefs_module.icon_svg(values["name"] or prefs_module.DEFAULT_NAME, values["accent"])
+            body = svg.encode("utf-8")
+            self.send_response(HTTPStatus.OK)
+            self.send_header("Content-Type", "image/svg+xml; charset=utf-8")
+            self.send_header("Content-Length", str(len(body)))
+            self.send_header("Cache-Control", "no-store")
+            self.send_header("X-Content-Type-Options", "nosniff")
+            self.end_headers()
+            self.wfile.write(body)
+            return
+
         if path == "/graph-data.js":
             # Le graphe dépend du compte : jamais le fichier d'un autre.
             _notes, graph = current_state(actor_of(self))

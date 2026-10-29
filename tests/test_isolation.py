@@ -204,6 +204,25 @@ def main() -> int:
         check("aucune adresse en clair sur le disque",
               not any("example" in f.name or "anna" in f.name or "moi" in f.name for f in pref_files))
 
+        # --- le nom suit jusque dans l'IA, le manifeste et l'icône ---
+        code, chat = anna.post("/api/chat", {"question": "qui es-tu ?"}, settings_header=False)
+        check("l'IA d'Anna se présente sous son nom",
+              code == 200 and "Cortex" in chat.get("answer", ""), chat.get("answer", "")[:46])
+        code, chat = me.post("/api/chat", {"question": "qui es-tu ?"}, settings_header=False)
+        check("l'IA du propriétaire garde JARVIS",
+              code == 200 and "JARVIS" in chat.get("answer", ""), chat.get("answer", "")[:46])
+
+        manifest_anna = json.loads(anna.get("/manifest.webmanifest"))
+        manifest_me = json.loads(me.get("/manifest.webmanifest"))
+        check("manifeste d'Anna à son nom", manifest_anna.get("short_name") == "Cortex")
+        check("manifeste du propriétaire inchangé", manifest_me.get("short_name") == "JARVIS")
+
+        icon_anna = anna.get("/icons/account.svg")
+        icon_me = me.get("/icons/account.svg")
+        check("icône d'Anna : son initiale", ">C</text>" in icon_anna, icon_anna.count("circle"))
+        check("icône d'Anna : teinte prune", "#d79ad0" in icon_anna)
+        check("icône du propriétaire intacte", ">J</text>" in icon_me and "#7de7f5" in icon_me)
+
         owner_files = {p.name for p in owner_notes.rglob("*.md")}
         guest_files = {p.name for d in (tmp / "data" / "users").iterdir() for p in d.rglob("*.md")}
         check("disque : dossiers séparés", not (owner_files & guest_files),
