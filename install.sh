@@ -60,11 +60,17 @@ fi
 # ---------------------------------------------------------------- copie du programme
 say "Copie du programme dans $APP_DIR"
 mkdir -p "$APP_DIR"
+# --delete remet le programme à neuf, mais ne doit JAMAIS toucher aux données :
+# data/ (notes de chaque compte, noms, teintes), access.json (qui peut entrer),
+# config.json (identifiants), et les notes déjà capturées.
 rsync -a --delete \
     --exclude '__pycache__' \
     --exclude 'access.json' \
-    --exclude 'notes/' \
     --exclude 'config.json' \
+    --exclude 'notes/' \
+    --exclude 'data/' \
+    --exclude 'captures/' \
+    --exclude 'examples/demo-notes/captures/' \
     ./ "$APP_DIR"/
 chown -R "$SERVICE_USER":"$SERVICE_USER" "$APP_DIR"
 chmod 700 "$APP_DIR"

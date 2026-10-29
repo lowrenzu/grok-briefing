@@ -2,6 +2,7 @@
 """Passerelle locale JARVIS. La clé IA et les notes restent côté serveur."""
 from __future__ import annotations
 
+import io
 import json
 import os
 import re
@@ -18,6 +19,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
 import urllib.parse
+import zipfile
 from urllib.parse import urlencode, urlsplit
 
 import access as access_module
@@ -636,6 +638,37 @@ class JarvisHandler(BaseHTTPRequestHandler):
         self.send_header("Cache-Control", "no-store")
         self.end_headers()
 
+    def send_notes_archive(self, actor: str) -> None:
+        """Archive .zip des notes du compte : de quoi sauver ses fichiers avant
+        une remise à zéro, ou les emporter sur un autre hébergeur."""
+        racine = notes_dir_for(actor).resolve()
+        if not racine.is_dir():
+            self.send_json({"error": "Aucun dossier de notes à sauvegarder."}, HTTPStatus.NOT_FOUND)
+            return
+        tampon = io.BytesIO()
+        ajoutes = 0
+        with zipfile.ZipFile(tampon, "w", zipfile.ZIP_DEFLATED) as archive:
+            for fichier in sorted(racine.rglob("*.md")):
+                if not fichier.is_file():
+                    continue
+                try:
+                    if not fichier.resolve().is_relative_to(racine):
+                        continue
+                    archive.write(fichier, fichier.relative_to(racine).as_posix())
+                    ajoutes += 1
+                except OSError:
+                    continue
+        corps = tampon.getvalue()
+        nom = f"jarvis-notes-{datetime.now().astimezone().strftime('%Y%m%d')}.zip"
+        self.send_response(HTTPStatus.OK)
+        self.send_header("Content-Type", "application/zip")
+        self.send_header("Content-Disposition", f'attachment; filename="{nom}"')
+        self.send_header("Content-Length", str(len(corps)))
+        self.send_header("Cache-Control", "no-store, private")
+        self.end_headers()
+        self.wfile.write(corps)
+        print(f"[JARVIS] Archive de notes : {ajoutes} fichier(s)")
+
     def send_login_page(self, message: str, status: HTTPStatus = HTTPStatus.OK) -> None:
         """Page minimale, sans dépendance aux ressources protégées.
 
@@ -767,6 +800,8 @@ class JarvisHandler(BaseHTTPRequestHandler):
         if path == "/api/graph":
             _notes, graph = current_state(actor_of(self))
             return self.send_json(graph)
+        if path == "/api/notes.zip":
+            return self.send_notes_archive(actor_of(self))
         if path == "/api/prefs":
             return self.send_json(PREFS.public(actor_of(self)))
         if path == "/api/access":

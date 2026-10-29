@@ -648,3 +648,16 @@ button:hover .chevron { color: var(--cyan); transform: translateX(2px); }
   body.jarvis-speaking .core-ring { opacity: 1; }
   body.jarvis-speaking .core-veil { opacity: 1; }
 }
+
+/* Lien de téléchargement des notes, dans les Réglages. */
+.link-inline {
+  color: var(--a3);
+  text-decoration: none;
+  border-bottom: 1px solid color-mix(in srgb, var(--a3) 45%, transparent);
+  padding-bottom: 1px;
+}
+.link-inline:hover,
+.link-inline:focus-visible {
+  color: var(--a6);
+  border-bottom-color: var(--a6);
+}

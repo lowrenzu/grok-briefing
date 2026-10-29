@@ -4,6 +4,17 @@
 
 Un assistant personnel **local-first** inspiré du *JARVIS Prompt Pack* et de la maquette fournie : hologramme central de JARVIS, cockpit de briefing, profils d'agents et suggestions de démonstration. Il transforme aussi des notes Markdown en galaxie de connaissances, répond à des questions à partir de ces notes, peut parler et retenir de nouveaux souvenirs.
 
+## Sauvegarder ses notes
+
+Dans ⚙ Réglages → « Télécharger mes notes » : une archive `.zip` de vos fichiers
+`.md`, propre à votre compte. Utile avant une mise à jour, pour changer
+d'hébergeur, ou simplement pour garder une copie ailleurs.
+
+Sur un hébergement **gratuit** (Render notamment), le disque est effacé à chaque
+redémarrage : cette archive est le seul moyen de ne rien perdre. Sur un serveur
+avec disque (VPS, Render Starter), les notes sont conservées sur place, et une
+mise à jour du programme ne les touche pas.
+
 ## Si la configuration est incomplète
 
 Dès que les identifiants Google sont présents, JARVIS **ferme** l'accès. Une liste

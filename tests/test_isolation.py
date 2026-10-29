@@ -61,6 +61,10 @@ class Session:
     def json(self, path: str) -> dict:
         return json.loads(self.get(path))
 
+    def raw(self, path: str) -> bytes:
+        with self.opener.open(f"{BASE}{path}", timeout=10) as response:
+            return response.read()
+
     def login(self) -> None:
         with self.opener.open(f"{BASE}/auth/login", timeout=5) as response:
             response.read()
@@ -234,6 +238,24 @@ def main() -> int:
         guest_files = {p.name for d in (tmp / "data" / "users").iterdir() for p in d.rglob("*.md")}
         check("disque : dossiers séparés", not (owner_files & guest_files),
               f"{len(owner_files)} vs {len(guest_files)}")
+
+        # --- l'archive de sauvegarde ne mélange jamais les comptes ---
+        import io
+        import zipfile
+
+        mienne = zipfile.ZipFile(io.BytesIO(me.raw("/api/notes.zip"))).namelist()
+        check("archive du propriétaire : ses notes", len(mienne) >= 1, f"{len(mienne)} fichier(s)")
+        check("archive : aucun fichier d'un autre compte",
+              not any(nom in owner_files - {f.name for f in owner_notes.rglob("*.md")} for nom in mienne))
+        try:
+            sienne = zipfile.ZipFile(io.BytesIO(anna.raw("/api/notes.zip"))).namelist()
+        except urllib.error.HTTPError as exc:
+            sienne = [] if exc.code == 404 else ["erreur"]
+        check("archive d'Anna : aucune note du propriétaire",
+              not (set(sienne) & set(mienne)) or not sienne,
+              f"{len(sienne)} fichier(s)")
+        check("archive d'Anna : uniquement ce qu'elle a écrit",
+              not sienne or all(".md" in nom for nom in sienne), str(sienne[:2]))
     finally:
         for proc in (server, fake):
             proc.terminate()
