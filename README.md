@@ -1,6 +1,15 @@
 # JARVIS — votre second cerveau
 
-> **Pas de serveur, pas de terminal ?** Suivre `DEPLOY-RAPIDE.md` : mise en ligne en cliquant, chez un hébergeur (Render), avec la connexion Google.
+## Le plus simple : sur votre ordinateur
+
+Décompressez l'archive, puis double-cliquez sur `LANCER-JARVIS.bat` (Windows)
+ou `Lancer-JARVIS.command` (Mac). Le navigateur s'ouvre sur JARVIS.
+
+Aucun compte, aucun mot de passe : le serveur n'écoute que sur `127.0.0.1`. Vos
+notes vivent dans le dossier `mes-notes`, à côté de `server.py`.
+Détails : [DEMARRER-EN-LOCAL.md](DEMARRER-EN-LOCAL.md).
+
+> **Besoin d'y accéder depuis un autre appareil ?** Voir `DEPLOY.md` (serveur) ou `DEPLOY-RAPIDE.md` (hébergeur, avec la connexion Google). Le local, lui, ne se partage pas — c'est ce qui le rend simple.
 
 Un assistant personnel **local-first** inspiré du *JARVIS Prompt Pack* et de la maquette fournie : hologramme central de JARVIS, cockpit de briefing, profils d'agents et suggestions de démonstration. Il transforme aussi des notes Markdown en galaxie de connaissances, répond à des questions à partir de ces notes, peut parler et retenir de nouveaux souvenirs.
 

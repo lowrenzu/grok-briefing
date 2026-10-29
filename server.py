@@ -841,6 +841,30 @@ dans ⚙ Réglages → Accès.</small>
         self.end_headers()
         self.wfile.write(body)
 
+    def send_notice(self, titre: str, message: str,
+                    status: HTTPStatus = HTTPStatus.OK) -> None:
+        """Page courte, sans formulaire : pour expliquer une situation."""
+        body = f"""<!doctype html><html lang="fr"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>JARVIS</title><style>
+body{{margin:0;min-height:100vh;display:grid;place-items:center;background:#050a10;color:#e8f8fc;
+font:14px/1.6 ui-sans-serif,system-ui,sans-serif;padding:20px}}
+.card{{max-width:460px;padding:26px;border:1px solid rgba(126,232,244,.28);border-radius:14px}}
+h1{{font-size:19px;margin:0 0 8px}}p{{color:#a9c3cd;margin:0 0 18px}}
+a{{display:inline-block;padding:11px 18px;border-radius:10px;background:#7de7f5;
+color:#04222b;font-weight:700;text-decoration:none}}
+</style></head><body><div class="card">
+<h1>{html.escape(titre)}</h1><p>{html.escape(message)}</p>
+<a href="/">Ouvrir JARVIS</a>
+</div></body></html>""".encode("utf-8")
+        self.send_response(status)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("X-Frame-Options", "DENY")
+        self.end_headers()
+        self.wfile.write(body)
+
     def send_setup_done(self) -> None:
         adresse = html.escape(self.public_address(), quote=True)
         body = f"""<!doctype html><html lang="fr"><head><meta charset="utf-8">
@@ -917,8 +941,15 @@ color:#04222b;font-weight:700;text-decoration:none}}
         path = urlsplit(self.path).path
         if path == "/setup":
             if not SETUP.pending():
-                self.send_setup_page(message="Ce serveur est déjà configuré.",
-                                     status=HTTPStatus.GONE)
+                self.send_notice("Déjà configuré.",
+                                 "Ce JARVIS a déjà ses identifiants : cette page ne sert plus.",
+                                 status=HTTPStatus.GONE)
+                return
+            if os.environ.get("JARVIS_AUTH", "").strip().lower() in {"off", "0", "false", "non"}:
+                # Usage local : il n'y a rien à configurer, donc rien à remplir.
+                self.send_notice("Aucun réglage nécessaire.",
+                                 "Ce JARVIS est ouvert sur cet ordinateur, sans compte : "
+                                 "il n'y a rien à configurer ici.")
                 return
             self.send_setup_page()
             return
@@ -1366,22 +1397,30 @@ def main() -> None:
     print("\n  JARVIS est prêt.")
     print(f"  Notes : {len(graph['nodes'])}  ·  Liens : {len(graph['links'])}")
     print(f"  IA : {AI.spec['label'] + ' · ' + AI.model if AI.configured else 'mode local (sans clé API)'}")
-    if os.environ.get("JARVIS_AUTH", "").strip().lower() in {"off", "0", "false", "non"}:
-        print("  ⚠ Connexion Google désactivée par JARVIS_AUTH=off (développement seulement).")
-    if AUTH.ready:
+    local_seul = host in ("127.0.0.1", "localhost", "::1")
+    auth_off = os.environ.get("JARVIS_AUTH", "").strip().lower() in {"off", "0", "false", "non"}
+    # Un seul message d'accès, décidé une fois : pas de doublon contradictoire.
+    if auth_off:
+        if local_seul:
+            print("  Accès : ce PC uniquement (aucune connexion demandée).")
+        else:
+            print("  ⚠ Connexion Google désactivée (JARVIS_AUTH=off) : serveur exposé sans porte.")
+    elif AUTH.ready:
         print(f"  Accès : connexion Google obligatoire ({ACCESS.count} adresse(s)) · administrateur {ACCESS.admin or '—'}")
         print(f"  Notes : un espace personnel par compte sous {_DATA_DIR}")
     elif AUTH.enabled:
         print("  Accès : connexion Google configurée mais aucune adresse autorisée — accès refusé.")
+    elif local_seul:
+        print("  Accès : ce PC uniquement (aucune connexion demandée).")
     else:
         print("  Accès : ouvert (aucune connexion demandée)")
-    if SETUP.pending() and os.environ.get("JARVIS_AUTH", "").strip().lower() not in {"off", "0", "false", "non"}:
+    if SETUP.pending() and not auth_off:
         code = SETUP.token()
         print("  Premier réglage à terminer.")
         print(f"  Ouvrez {AUTH.public_url or 'https://votre-domaine'}/setup et saisissez ce code :")
         print(f"      {code}")
         print("  (Le code change à chaque nouveau réglage ; la page disparaît ensuite.)")
-    if host not in ("127.0.0.1", "localhost", "::1") and not AUTH.ready and not SETUP.pending():
+    if not local_seul and not AUTH.ready and not SETUP.pending():
         print("  ⚠  Écoute exposée sans connexion Google : vos notes sont accessibles sur le réseau.")
     print(f"  Ouvrez : http://localhost:{port}  (Chrome ou Edge pour la dictée)\n")
     try:

@@ -194,8 +194,9 @@ def scenario_developpement() -> None:
     try:
         code, _, _ = requete(port, "/", host=PUBLIC)
         verifier("mode développement : l'interface s'ouvre", code == 200, str(code))
-        code, _, _ = requete(port, "/setup", host=PUBLIC)
-        verifier("mode développement : /setup reste possible", code == 200, str(code))
+        code, _, corps = requete(port, "/setup", host=PUBLIC)
+        verifier("mode développement : aucun formulaire de réglage",
+                 code == 200 and 'name="token"' not in corps, str(code))
     finally:
         proc.terminate()
         try:

@@ -82,7 +82,6 @@ class AccessList:
         # Nettoyage tolérant : guillemets de copier-coller, espaces, retours à la ligne.
         people = [item for item in (str(email).strip().strip("'\"") for email in emails) if item]
         if not people:
-            print("[JARVIS] Aucune adresse autorisée fournie : personne ne pourra entrer.")
             return
         with self._lock:
             now = time.time()
