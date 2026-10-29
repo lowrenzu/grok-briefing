@@ -21,6 +21,20 @@
   const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   const core = $("#jarvisCore");
 
+  // Le canvas ne peut pas lire les variables CSS : on les recopie ici, puis on
+  // les rafraîchit quand la teinte d'accent change (Réglages).
+  const ACCENT = { a1: "126,232,244", a2: "96,216,236", a3: "150,244,252", a4: "120,236,240", a5: "94,196,220", a6: "196,252,255" };
+  function refreshAccent() {
+    const styles = getComputedStyle(document.documentElement);
+    for (const role of Object.keys(ACCENT)) {
+      const value = styles.getPropertyValue(`--${role}`).trim();
+      if (value) ACCENT[role] = value.replace(/\s+/g, " ");
+    }
+  }
+  const ink = (role, alpha) => `rgba(${ACCENT[role]},${alpha})`;
+  // La teinte est appliquée avant le premier dessin : aucune bascule visible.
+  refreshAccent();
+
   let graph = window.JARVIS_GRAPH && Array.isArray(window.JARVIS_GRAPH.nodes)
     ? window.JARVIS_GRAPH
     : { nodes: [], links: [] };
@@ -526,14 +540,14 @@
       context.beginPath();
       context.arc(centerX, centerY, arcRadius, startAngle, startAngle + angleDelta, angleDelta < 0);
       context.lineWidth = (bright ? 1.3 : .7) + (arc.weight > 1 ? Math.min(1.1, arc.weight * .07) : 0);
-      context.strokeStyle = bright ? "rgba(120, 236, 240, .5)" : "rgba(107, 196, 217, .2)";
+      context.strokeStyle = bright ? ink("a4", .5) : ink("a5", .2);
       context.globalAlpha = alpha * breath;
       context.stroke();
       // Le flux lumineux qui parcourt l'arc : même motif, même vitesse partout.
       context.setLineDash(dash);
       context.lineDashOffset = -time * flowSpeed;
       context.lineWidth = bright ? 1.8 : 1.4;
-      context.strokeStyle = bright ? "rgba(196, 252, 255, .92)" : "rgba(150, 232, 245, .42)";
+      context.strokeStyle = bright ? ink("a6", .92) : ink("a1", .42);
       context.globalAlpha = alpha * breath * (bright ? 1 : .9);
       context.stroke();
       context.restore();
@@ -546,9 +560,9 @@
     if (alpha <= .01) return;
     context.save();
     const halo = context.createRadialGradient(x, y, radius * .4, x, y, radius * 4.6);
-    halo.addColorStop(0, `rgba(150,244,252,${Math.min(.55, .5 * alpha * glow)})`);
-    halo.addColorStop(.45, `rgba(96,216,236,${.16 * alpha})`);
-    halo.addColorStop(1, "rgba(96,216,236,0)");
+    halo.addColorStop(0, ink("a3", Math.min(.55, .5 * alpha * glow)));
+    halo.addColorStop(.45, ink("a2", .16 * alpha));
+    halo.addColorStop(1, ink("a2", 0));
     context.fillStyle = halo;
     context.beginPath();
     context.arc(x, y, radius * 4.6, 0, Math.PI * 2);
@@ -564,12 +578,12 @@
     context.fill();
     context.beginPath();
     context.arc(x, y, ringRadius, 0, Math.PI * 2);
-    context.strokeStyle = `rgba(126,232,244,${.5 * alpha})`;
+    context.strokeStyle = ink("a1", .5 * alpha);
     context.lineWidth = 1;
     context.stroke();
     context.beginPath();
     context.arc(x, y, ringRadius * 1.45, 0, Math.PI * 2);
-    context.strokeStyle = `rgba(126,232,244,${.16 * alpha})`;
+    context.strokeStyle = ink("a1", .16 * alpha);
     context.stroke();
     context.restore();
   }
@@ -589,7 +603,7 @@
     context.save();
     context.beginPath();
     context.ellipse(cx, cy, rx, ry * tilt, 0, 0, Math.PI * 2);
-    context.strokeStyle = "rgba(94, 196, 220, .12)";
+    context.strokeStyle = ink("a5", .12);
     context.lineWidth = 1;
     context.stroke();
     // Graduations : le côté « instrument » du HUD.
@@ -605,7 +619,7 @@
       context.beginPath();
       context.moveTo(x1, y1);
       context.lineTo(x2, y2);
-      context.strokeStyle = long ? "rgba(126,232,244,.22)" : "rgba(126,232,244,.1)";
+      context.strokeStyle = long ? ink("a1", .22) : ink("a1", .1);
       context.stroke();
     }
     // Deux arcs lumineux en rotation : le cercle « respire » en permanence.
@@ -613,7 +627,7 @@
       const start = time * speed + offset;
       context.beginPath();
       context.ellipse(cx, cy, rx, ry * tilt, 0, start, start + span);
-      context.strokeStyle = `rgba(150, 240, 250, ${alpha})`;
+      context.strokeStyle = ink("a3", alpha);
       context.lineWidth = 1.6;
       context.stroke();
     }
@@ -621,7 +635,7 @@
       const breathe = 1 + Math.sin(time * .8) * .012;
       context.beginPath();
       context.ellipse(cx, cy, rx * breathe, ry * tilt * breathe, 0, 0, Math.PI * 2);
-      context.strokeStyle = "rgba(126,232,244,.07)";
+      context.strokeStyle = ink("a1", .07);
       context.lineWidth = 10;
       context.stroke();
     }
@@ -1939,6 +1953,31 @@
     button.setAttribute("aria-label", show ? "Masquer la clé" : "Afficher la clé");
   }
 
+  // --- Teinte d'accent : préférence d'affichage, propre à cet appareil -------
+  const ACCENT_KEY = "jarvis-accent";
+
+  function applyAccent(name, { remember = true } = {}) {
+    const value = ["violet", "ambre"].includes(name) ? name : "";
+    if (value) document.documentElement.dataset.accent = value;
+    else delete document.documentElement.dataset.accent;
+    for (const button of document.querySelectorAll("[data-accent-choice]")) {
+      button.setAttribute("aria-checked", String((button.dataset.accentChoice || "") === value));
+    }
+    refreshAccent();
+    if (remember) {
+      try {
+        if (value) localStorage.setItem(ACCENT_KEY, value);
+        else localStorage.removeItem(ACCENT_KEY);
+      } catch { /* navigation privée : le choix vaut pour la session */ }
+    }
+  }
+
+  function loadAccent() {
+    let saved = "";
+    try { saved = localStorage.getItem(ACCENT_KEY) || ""; } catch { saved = ""; }
+    applyAccent(saved, { remember: false });
+  }
+
   async function openSettings() {
     if (!settingsDialog) return;
     if (typeof settingsDialog.showModal === "function" && !settingsDialog.open) settingsDialog.showModal();
@@ -2036,6 +2075,9 @@
     }
     const settingsButton = $("#settingsButton");
     if (settingsButton) settingsButton.addEventListener("click", openSettings);
+    for (const swatch of document.querySelectorAll("[data-accent-choice]")) {
+      swatch.addEventListener("click", () => applyAccent(swatch.dataset.accentChoice || ""));
+    }
     if ($("#closeSettings")) $("#closeSettings").addEventListener("click", closeSettings);
     if (settingsDialog) {
       settingsDialog.addEventListener("click", (event) => {
@@ -2121,6 +2163,7 @@
 
   updateGraph(graph);
   createStars();
+  loadAccent();   // avant le premier dessin : la teinte est déjà en place
   revealCore();
   wireEvents();
   resizeCanvas();
