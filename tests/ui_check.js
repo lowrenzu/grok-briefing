@@ -21,7 +21,7 @@ function check(label, condition, detail = "") {
   condition ? ok++ : ko++;
 }
 
-function boot() {
+function boot(options = {}) {
   const dom = new JSDOM(html, { url: "http://localhost:4700/", runScripts: "outside-only", pretendToBeVisual: true });
   const { window } = dom;
   window.HTMLCanvasElement.prototype.getContext = () => new Proxy({}, {
@@ -35,14 +35,32 @@ function boot() {
   });
   window.requestAnimationFrame = () => 0;
   window.matchMedia = () => ({ matches: false, addEventListener() {} });
-  window.speechSynthesis = { getVoices: () => [], speak() {}, cancel() {} };
+  // Synthèse vocale simulée : on enregistre ce que JARVIS demande de dire.
+  const paroles = [];
+  window.SpeechSynthesisUtterance = function (texte) {
+    this.text = texte;
+    this.voice = null;
+    this.lang = "";
+    this.rate = 1;
+    this.pitch = 1;
+  };
+  window.speechSynthesis = {
+    speaking: false,
+    pending: false,
+    getVoices: () => options.voix || [],
+    speak(utterance) { paroles.push(utterance); },
+    cancel() {},
+    addEventListener() {},
+    removeEventListener() {},
+  };
+  if (options.tests) window.__JARVIS_TESTS__ = true;
   const style = window.document.createElement("style");
   style.textContent = css;
   window.document.head.appendChild(style);
   const errors = [];
   window.addEventListener("error", (event) => errors.push(event.message));
   window.eval(app);
-  return { window, document: window.document, errors };
+  return { window, document: window.document, errors, paroles };
 }
 
 const { window, document, errors } = boot();
@@ -96,6 +114,46 @@ check("une seule pastille cochée en auto",
 prune.click();
 check("teinte fixe après le mode auto", document.documentElement.dataset.accent === "prune");
 check("teinte fixe mémorisée", window.localStorage.getItem("jarvis-accent") === "prune");
+
+// --- voix : la moins robotique possible ------------------------------------
+{
+  const VOCABULAIRE = { name: "Microsoft Hortense - French (France)", lang: "fr-FR", localService: true };
+  const PAUL = { name: "Microsoft Paul - French (France)", lang: "fr-FR", localService: true };
+  const NEURALE = { name: "Microsoft Denise Online (Natural) - French (France)", lang: "fr-FR", localService: false };
+  const ANGLAISE = { name: "Microsoft Aria Online (Natural) - English (United States)", lang: "en-US", localService: false };
+
+  const essai = boot({ tests: true, voix: [ANGLAISE, VOCABULAIRE, PAUL, NEURALE] });
+  const outils = essai.window.JARVIS_TEST;
+  check("accroche de test disponible", !!outils);
+
+  if (outils) {
+    check("la voix neuronale est préférée", outils.pickFrenchVoice([ANGLAISE, VOCABULAIRE, PAUL, NEURALE]) === NEURALE);
+    check("Hortense est écartée au profit de Paul",
+      outils.pickFrenchVoice([VOCABULAIRE, PAUL]) === PAUL);
+    check("jamais de voix anglaise pour du français",
+      outils.pickFrenchVoice([ANGLAISE]) === null);
+    check("aucune voix : pas de plantage", outils.pickFrenchVoice([]) === null);
+
+    const long = "Bonjour. " + "Ceci est une phrase assez longue pour forcer un découpage propre. ".repeat(4) + "Bonne journée.";
+    const phrases = outils.decouperEnPhrases(long);
+    check("un texte long est découpé", phrases.length > 1, `${phrases.length} phrases`);
+    check("aucune phrase trop longue", phrases.every((p) => p.length <= 180),
+      `max ${Math.max(...phrases.map((p) => p.length))}`);
+    check("le texte est intégralement conservé",
+      phrases.join(" ").replace(/\s+/g, " ").trim() === long.replace(/\s+/g, " ").trim());
+  }
+
+  // Comportement réel : activer la voix parle avec la meilleure voix disponible.
+  essai.document.querySelector("#voiceToggle").click();
+  const premiere = essai.paroles[0];
+  check("activer la voix déclenche une lecture", !!premiere);
+  if (premiere) {
+    check("la voix choisie est la neuronale", (premiere.voice || {}).name === NEURALE.name);
+    check("débit naturel", premiere.rate === 1, `${premiere.rate}`);
+    check("hauteur naturelle", premiere.pitch === 1, `${premiere.pitch}`);
+    check("langue française", premiere.lang === "fr-FR");
+  }
+}
 
 // --- ouverture directe du fichier (file://) --------------------------------
 {

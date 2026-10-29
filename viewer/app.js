@@ -1383,11 +1383,63 @@
       .trim();
   }
 
+  // Voix françaises agréables, par ordre de préférence. Les voix « Natural » /
+  // « Online » (Edge, Chrome récent) sont neuronales : sans commune mesure avec
+  // les voix SAPI d'origine, beaucoup plus mécaniques.
+  const VOIX_PREFEREES = [
+    "denise", "vivienne", "henri", "remy", "rémy", "eloise", "éloïse",
+    "julie", "paul", "celine", "céline", "amelie", "amélie", "thomas",
+    "google français", "audrey", "aurelie", "aurélie",
+  ];
+  // Voix de bureau anciennes : très robotiques, on les évite si possible.
+  const VOIX_ROBOTIQUES = ["hortense", "sabina", "helena", "zira", "david", "mark"];
+
+  function noterVoix(voice) {
+    const nom = String(voice.name || "").toLowerCase();
+    let note = 0;
+    if (/natural|online|neural/.test(nom)) note += 100;
+    if (voice.localService === false) note += 6;
+    const rang = VOIX_PREFEREES.findIndex((mot) => nom.includes(mot));
+    if (rang >= 0) note += 40 - rang;
+    if (VOIX_ROBOTIQUES.some((mot) => nom.includes(mot))) note -= 60;
+    if (!/^fr[-_]fr/i.test(String(voice.lang || ""))) note -= 30;
+    return note;
+  }
+
   function pickFrenchVoice(voices) {
     if (!Array.isArray(voices) || !voices.length) return null;
-    return voices.find((voice) => /^fr[-_]fr/i.test(voice.lang || ""))
-      || voices.find((voice) => /^fr/i.test(voice.lang || ""))
-      || null;
+    const francaises = voices.filter((voice) => /^fr/i.test(String(voice.lang || "")));
+    if (!francaises.length) return null;
+    return francaises
+      .slice()
+      .sort((a, b) => noterVoix(b) - noterVoix(a))[0];
+  }
+
+  // Découpe en phrases courtes. Une seule longue phrase saccade et se coupe
+  // parfois au milieu ; des phrases séparées respirent et s'entendent mieux.
+  function decouperEnPhrases(texte) {
+    const morceaux = String(texte).match(/[^.!?…]+[.!?…]*/g) || [];
+    const phrases = [];
+    let tampon = "";
+    for (const morceau of morceaux) {
+      const bout = morceau.trim();
+      if (!bout) continue;
+      if (!tampon) {
+        tampon = bout;
+      } else if ((tampon + " " + bout).length <= 170) {
+        tampon += " " + bout;
+      } else {
+        phrases.push(tampon);
+        tampon = bout;
+      }
+    }
+    if (tampon) phrases.push(tampon);
+    return phrases;
+  }
+
+  // Point d'accroche réservé aux tests automatiques : jamais actif en usage réel.
+  if (window.__JARVIS_TESTS__) {
+    window.JARVIS_TEST = { pickFrenchVoice, noterVoix, decouperEnPhrases };
   }
 
   function withVoices(callback) {
@@ -1440,29 +1492,53 @@
     const token = ++speechToken;
     stopSpeechVisuals();
     try { synth.cancel(); } catch (_error) { /* navigateur sans annulation : sans effet */ }
+    const phrases = decouperEnPhrases(sentence);
+    if (!phrases.length) return;
     withVoices((voices) => {
       if (token !== speechToken || !voiceEnabled) return;
-      const utterance = new SpeechSynthesisUtterance(sentence);
-      utterance.lang = "fr-FR";
-      utterance.rate = .97;
-      utterance.pitch = .94;
-      utterance.voice = pickFrenchVoice(voices);
-      utterance.onstart = () => {
-        if (token === speechToken && voiceEnabled) setJarvisSpeaking(true);
-      };
-      utterance.onboundary = (event) => {
+      const voix = pickFrenchVoice(voices);
+      let index = 0;
+
+      const lire = () => {
         if (token !== speechToken || !voiceEnabled) return;
-        if (event && event.name && event.name !== "word") return;
-        pulseVoiceGlow();
+        if (index >= phrases.length) {
+          stopSpeechVisuals(token);
+          return;
+        }
+        const utterance = new SpeechSynthesisUtterance(phrases[index++]);
+        utterance.lang = "fr-FR";
+        // Débit et hauteur proches du naturel : .97/.94 donnaient un timbre
+        // voilé et une cadence mécanique.
+        utterance.rate = 1;
+        utterance.pitch = 1;
+        if (voix) utterance.voice = voix;
+        utterance.onstart = () => {
+          if (token === speechToken && voiceEnabled) setJarvisSpeaking(true);
+        };
+        utterance.onboundary = (event) => {
+          if (token !== speechToken || !voiceEnabled) return;
+          if (event && event.name && event.name !== "word") return;
+          pulseVoiceGlow();
+        };
+        utterance.onend = () => {
+          if (token !== speechToken || !voiceEnabled) return;
+          if (index < phrases.length) {
+            // Un souffle entre les phrases : une pause nulle sonne hachée.
+            window.setTimeout(lire, 130);
+          } else {
+            stopSpeechVisuals(token);
+          }
+        };
+        utterance.onerror = () => stopSpeechVisuals(token);
+        try {
+          synth.speak(utterance);
+        } catch (_error) {
+          stopSpeechVisuals(token);
+        }
       };
-      utterance.onend = () => stopSpeechVisuals(token);
-      utterance.onerror = () => stopSpeechVisuals(token);
-      try {
-        synth.speak(utterance);
-      } catch (_error) {
-        stopSpeechVisuals(token);
-        return;
-      }
+
+      lire();
+
       // Certains navigateurs n'émettent jamais « start » : on affiche quand même la
       // parole, mais seulement si la synthèse est réellement active.
       window.clearTimeout(speechFallback);
@@ -1478,7 +1554,9 @@
           speechWatchdog = null;
           return;
         }
+        // Entre deux phrases, la file est légèrement vide : on tolère la pause.
         if (synth.speaking || synth.pending) return;
+        if (index < phrases.length && voiceEnabled) return;
         stopSpeechVisuals(token);
       }, SPEECH_WATCHDOG_INTERVAL);
     });
