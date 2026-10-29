@@ -15,11 +15,11 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="JARVIS">
   <meta name="robots" content="noindex, nofollow">
-  <link rel="preload" as="image" type="image/avif" href="/assets/jarvis-core-ring.avif?v=20261029t" fetchpriority="high">
-  <link rel="preload" as="image" type="image/avif" href="/assets/jarvis-core-disc.avif?v=20261029t" fetchpriority="high">
-  <link rel="stylesheet" href="/styles.css?v=20261029t">
-  <script defer src="/graph-data.js?v=20261029t"></script>
-  <script defer src="/app.js?v=20261029t"></script>
+  <link rel="preload" as="image" type="image/avif" href="/assets/jarvis-core-ring.avif?v=20261029u" fetchpriority="high">
+  <link rel="preload" as="image" type="image/avif" href="/assets/jarvis-core-disc.avif?v=20261029u" fetchpriority="high">
+  <link rel="stylesheet" href="/styles.css?v=20261029u">
+  <script defer src="/graph-data.js?v=20261029u"></script>
+  <script defer src="/app.js?v=20261029u"></script>
 </head>
 <body>
   <div class="screen-shade" aria-hidden="true"></div>
@@ -96,16 +96,16 @@
         <canvas id="galaxy" role="img" aria-label="Galaxie interactive de vos notes. Faites glisser pour tourner, cliquez sur une étoile pour ouvrir sa source."></canvas>
         <div class="stage-vignette" aria-hidden="true"></div>
         <div class="jarvis-core" id="jarvisCore" aria-hidden="true">
-          <span class="jarvis-core-layer core-ring"><img src="/assets/jarvis-core-ring.avif?v=20261029t" alt="" decoding="async" fetchpriority="high"></span>
-          <span class="jarvis-core-layer core-veil"><img src="/assets/jarvis-core-veil.avif?v=20261029t" alt="" decoding="async"></span>
+          <span class="jarvis-core-layer core-ring"><img src="/assets/jarvis-core-ring.avif?v=20261029u" alt="" decoding="async" fetchpriority="high"></span>
+          <span class="jarvis-core-layer core-veil"><img src="/assets/jarvis-core-veil.avif?v=20261029u" alt="" decoding="async"></span>
           <span class="jarvis-core-layer core-disc">
-            <img class="core-disc-base" src="/assets/jarvis-core-disc.avif?v=20261029t" alt="" decoding="async" fetchpriority="high">
-            <img class="core-voice-tint core-voice-violet" src="/assets/jarvis-core-hud-violet.avif?v=20261029t" alt="" decoding="async">
-            <img class="core-voice-tint core-voice-ambre" src="/assets/jarvis-core-hud-ambre.avif?v=20261029t" alt="" decoding="async">
+            <img class="core-disc-base" src="/assets/jarvis-core-disc.avif?v=20261029u" alt="" decoding="async" fetchpriority="high">
+            <img class="core-voice-tint core-voice-violet" src="/assets/jarvis-core-hud-violet.avif?v=20261029u" alt="" decoding="async">
+            <img class="core-voice-tint core-voice-ambre" src="/assets/jarvis-core-hud-ambre.avif?v=20261029u" alt="" decoding="async">
             <i class="core-disc-sweep"></i>
             <i class="core-disc-spark"></i>
           </span>
-          <span class="jarvis-core-layer core-light"><img src="/assets/jarvis-core-light.avif?v=20261029t" alt="" decoding="async"></span>
+          <span class="jarvis-core-layer core-light"><img src="/assets/jarvis-core-light.avif?v=20261029u" alt="" decoding="async"></span>
           <span class="jarvis-core-beam" aria-hidden="true"></span>
           <span class="jarvis-core-base" aria-hidden="true"></span>
         </div>
@@ -245,8 +245,11 @@
           <button type="button" class="accent-swatch" data-accent-choice="prune" role="radio" aria-checked="false">
             <span class="accent-dot accent-dot-prune" aria-hidden="true"></span>Prune
           </button>
+          <button type="button" class="accent-swatch" data-accent-choice="auto" role="radio" aria-checked="false">
+            <span class="accent-dot accent-dot-auto" aria-hidden="true"></span>Auto
+          </button>
         </div>
-        <p class="accent-note">Ce choix ne change que votre affichage, sur cet appareil.</p>
+        <p class="accent-note">Ce choix ne change que votre affichage. <b>Auto</b> suit l’heure : bleu le jour, ambre au crépuscule, violet la nuit.</p>
       </section>
 
       <p class="settings-status" id="settingsStatus" role="status" aria-live="polite"></p>

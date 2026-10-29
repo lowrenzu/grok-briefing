@@ -19,7 +19,22 @@ import workspaces as workspaces_module
 
 DEFAULT_NAME = "JARVIS"
 NAME_MAX_LENGTH = 24
-ACCENTS = ("", "violet", "ambre", "prune")
+ACCENTS = ("", "violet", "ambre", "prune", "auto")
+
+# Teinte automatique : le jour dans les bleus, la nuit dans les prunes.
+# Le client applique ce calcul à l'heure LOCALE ; le serveur ne s'en sert que
+# pour l'icône, faute de connaître le fuseau de la personne.
+# (limite exclue, teinte) : on retient la première limite supérieure à l'heure.
+AUTO_BY_HOUR = ((6, "violet"), (11, ""), (18, ""), (22, "ambre"), (24, "violet"))
+
+
+def accent_for_hour(hour: int) -> str:
+    """Teinte fixe correspondant à une heure donnée (0–23)."""
+    hour = max(0, min(23, int(hour)))
+    for limit, accent in AUTO_BY_HOUR:
+        if hour < limit:
+            return accent
+    return ""
 
 # Lettres, chiffres, espaces, apostrophes et quelques signes : de quoi écrire
 # « Jarvis », « Cortex », « Mon Œil » ou « J.A.R.V.I.S. » sans surprise.
@@ -152,6 +167,9 @@ def initials(name: str, default: str = DEFAULT_NAME) -> str:
 
 def icon_svg(name: str, accent: str) -> str:
     """Icône carrée : anneau lumineux et initiale du nom."""
+    if accent == "auto":
+        from datetime import datetime as _dt
+        accent = accent_for_hour(_dt.now().hour)
     colors = ACCENT_PALETTE.get(accent, ACCENT_PALETTE[""])
     letters = initials(name)
     size = 512

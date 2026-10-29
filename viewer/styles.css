@@ -514,6 +514,7 @@ button:hover .chevron { color: var(--cyan); transform: translateX(2px); }
 .accent-dot-violet { background: radial-gradient(circle at 35% 30%, #ece2ff, #a06cf5 62%, #5b3a99); color: #c9a8ff; }
 .accent-dot-ambre { background: radial-gradient(circle at 35% 30%, #fff3d6, #e9b866 62%, #9a7231); color: #f0c987; }
 .accent-dot-prune { background: radial-gradient(circle at 35% 30%, #f7daf4, #cd8fc7 62%, #7a477a); color: #d79ad0; }
+.accent-dot-auto { background: linear-gradient(135deg, #7de7f5 0%, #7de7f5 33%, #f0c987 33%, #f0c987 66%, #d79ad0 66%); color: #c9a8ff; }
 .accent-note { margin: 8px 0 0; color: var(--dim); font-size: 9.5px; }
 
 .settings-note { margin: 2px 0 0; padding-top: 10px; border-top: 1px solid var(--line); color: #93a7b1; font-size: 10px; line-height: 1.5; }

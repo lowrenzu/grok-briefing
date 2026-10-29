@@ -49,8 +49,10 @@ const { window, document, errors } = boot();
 
 // --- teintes ---------------------------------------------------------------
 const swatches = document.querySelectorAll("[data-accent-choice]");
-check("quatre teintes proposées", swatches.length === 4, `${swatches.length}`);
+check("cinq teintes proposées", swatches.length === 5, `${swatches.length}`);
 check("la prune existe", !!document.querySelector('[data-accent-choice="prune"]'));
+check("le mode auto existe", !!document.querySelector('[data-accent-choice="auto"]'));
+check("la pastille auto est un dégradé", css.includes(".accent-dot-auto"));
 check("la teinte prune est stylée", css.includes('[data-accent="prune"]'));
 check("le cœur est recoloré en prune", /\[data-accent="prune"\] \.jarvis-core img/.test(css));
 
@@ -60,6 +62,40 @@ check("prune appliquée", document.documentElement.dataset.accent === "prune");
 check("prune mémorisée", window.localStorage.getItem("jarvis-accent") === "prune");
 check("une seule pastille cochée",
   document.querySelectorAll('[data-accent-choice][aria-checked="true"]').length === 1);
+
+// --- mode automatique ------------------------------------------------------
+const auto = document.querySelector('[data-accent-choice="auto"]');
+
+function withHour(hour, action) {
+  const RealDate = window.Date;
+  class FakeDate extends RealDate {
+    constructor(...args) { super(...(args.length ? args : [2026, 9, 29, hour, 30, 0])); }
+    static now() { return new RealDate(2026, 9, 29, hour, 30, 0).getTime(); }
+  }
+  window.Date = FakeDate;
+  try { action(); } finally { window.Date = RealDate; }
+}
+
+withHour(9, () => auto.click());
+check("9 h : bleu du matin", !document.documentElement.dataset.accent, document.documentElement.dataset.accent || "bleu");
+
+withHour(19, () => auto.click());
+check("19 h : ambre du soir", document.documentElement.dataset.accent === "ambre");
+
+withHour(23, () => auto.click());
+check("23 h : violet de la nuit", document.documentElement.dataset.accent === "violet");
+
+withHour(4, () => auto.click());
+check("4 h : violet aussi", document.documentElement.dataset.accent === "violet");
+
+check("le mode auto est mémorisé", window.localStorage.getItem("jarvis-accent") === "auto");
+check("une seule pastille cochée en auto",
+  document.querySelectorAll('[data-accent-choice][aria-checked="true"]').length === 1);
+
+// Retour à une teinte fixe : plus de bascule horaire.
+prune.click();
+check("teinte fixe après le mode auto", document.documentElement.dataset.accent === "prune");
+check("teinte fixe mémorisée", window.localStorage.getItem("jarvis-accent") === "prune");
 
 // --- nom -------------------------------------------------------------------
 check("le nom est présent dans la marque", document.querySelector(".brand-word .js-name") !== null);

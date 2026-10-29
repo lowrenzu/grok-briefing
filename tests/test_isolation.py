@@ -194,6 +194,13 @@ def main() -> int:
         code, refused = me.post("/api/prefs", {"accent": "rouge"})
         check("teinte inconnue refusée", code == 400, str(code))
 
+        code, auto = me.post("/api/prefs", {"accent": "auto"})
+        check("mode auto accepté", code == 200 and auto.get("accent") == "auto")
+        check("mode auto relu", me.json("/api/prefs").get("accent") == "auto")
+        check("l'icône du mode auto reste valide",
+              "<svg" in me.get("/icons/account.svg") and "circle" in me.get("/icons/account.svg"))
+        me.post("/api/prefs", {"accent": ""})
+
         code, reset = me.post("/api/prefs", {"name": ""})
         check("nom remis par défaut", code == 200 and reset.get("name") == "JARVIS")
 

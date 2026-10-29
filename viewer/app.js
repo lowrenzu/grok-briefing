@@ -1956,20 +1956,44 @@
   // --- Teinte d'accent : préférence d'affichage, propre à cet appareil -------
   const ACCENT_KEY = "jarvis-accent";
 
-  function applyAccent(name, { remember = true } = {}) {
-    const value = ["violet", "ambre", "prune"].includes(name) ? name : "";
-    if (value) document.documentElement.dataset.accent = value;
+  const FIXED_ACCENTS = ["violet", "ambre", "prune"];
+  let accentChoice = "";   // ce qui a été choisi : "", une teinte fixe, ou "auto"
+
+  // Mode automatique : bleu le jour, ambre au crépuscule, violet la nuit.
+  function autoAccent(hour) {
+    if (hour >= 22 || hour < 6) return "violet";
+    if (hour >= 18) return "ambre";
+    return "";
+  }
+
+  function resolvedAccent(choice) {
+    if (choice === "auto") return autoAccent(new Date().getHours());
+    return FIXED_ACCENTS.includes(choice) ? choice : "";
+  }
+
+  function paintTheme(theme) {
+    if (theme) document.documentElement.dataset.accent = theme;
     else delete document.documentElement.dataset.accent;
-    for (const button of document.querySelectorAll("[data-accent-choice]")) {
-      button.setAttribute("aria-checked", String((button.dataset.accentChoice || "") === value));
-    }
     refreshAccent();
+  }
+
+  function applyAccent(name, { remember = true } = {}) {
+    accentChoice = name === "auto" ? "auto" : (FIXED_ACCENTS.includes(name) ? name : "");
+    paintTheme(resolvedAccent(accentChoice));
+    for (const button of document.querySelectorAll("[data-accent-choice]")) {
+      button.setAttribute("aria-checked", String((button.dataset.accentChoice || "") === accentChoice));
+    }
     if (remember) {
       try {
-        if (value) localStorage.setItem(ACCENT_KEY, value);
+        if (accentChoice) localStorage.setItem(ACCENT_KEY, accentChoice);
         else localStorage.removeItem(ACCENT_KEY);
       } catch { /* navigation privée : le choix vaut pour la session */ }
     }
+  }
+
+  // En mode automatique, la teinte suit l'heure sans qu'on recharge la page.
+  function refreshAutoAccent() {
+    if (accentChoice === "auto") paintTheme(resolvedAccent("auto"));
   }
 
   function loadAccent() {
@@ -2240,6 +2264,10 @@
   updateGraph(graph);
   createStars();
   loadAccent();   // avant le premier dessin : la teinte est déjà en place
+  window.setInterval(refreshAutoAccent, 5 * 60 * 1000);
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) refreshAutoAccent();
+  });
   loadPrefs();    // puis le nom et la teinte enregistrés pour ce compte
   revealCore();
   wireEvents();

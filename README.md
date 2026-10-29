@@ -11,7 +11,9 @@ Dans **Réglages → Identité**, chaque compte choisit :
 - le **nom affiché** (24 caractères au plus) — il remplace « JARVIS » partout :
   marque, titre de l'onglet, placeholder du chat, messages d'attente, réponses de
   l'assistant (« Je suis Cortex… »), **icône et nom de l'application installée** ;
-- la **teinte d'accent** : Bleu JARVIS, Violet, Ambre ou Prune.
+- la **teinte d'accent** : Bleu JARVIS, Violet, Ambre, Prune, ou **Auto** — dans ce
+  dernier cas elle suit l'heure locale (bleu le jour, ambre de 18 h à 22 h, violet
+  la nuit) et bascule d'elle-même sans recharger la page.
 
 Ces préférences sont **propres à chaque compte** : Anna peut appeler son JARVIS
 autrement et le teinter en prune sans que cela change quoi que ce soit chez
