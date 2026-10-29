@@ -2,6 +2,7 @@
 """Passerelle locale JARVIS. La clé IA et les notes restent côté serveur."""
 from __future__ import annotations
 
+import html
 import io
 import json
 import os
@@ -28,6 +29,7 @@ import auth as auth_module
 from build import DEFAULT_NOTES_DIR, ROOT, build_links, normalize, public_graph, read_notes, resolve_notes_dir, write_graph_data
 import workspaces as workspaces_module
 import prefs as prefs_module
+import setup as setup_module
 
 CONFIG_PATH = ROOT / "config.json"
 MAX_BODY_BYTES = 24_000
@@ -106,6 +108,15 @@ AUTH.allowed = ACCESS.emails  # access.json fait foi, même si l'environnement e
 def sync_access() -> None:
     """Après un changement d'administration : la porte suit immédiatement."""
     AUTH.allowed = ACCESS.emails
+
+
+def reload_configuration() -> None:
+    """Relit config.json : utilisé juste après le premier réglage, sans redémarrage."""
+    global CONFIG, AUTH
+    CONFIG = load_config()
+    _seed_access()
+    AUTH = _auth_from_config()
+    AUTH.allowed = ACCESS.emails
 # Variable d'environnement prioritaire : pratique en hébergement et pour les tests.
 NOTES_DIR = resolve_notes_dir(os.environ.get("JARVIS_NOTES_DIR") or CONFIG.get("notes_dir"))
 
@@ -115,6 +126,21 @@ WORKSPACES = workspaces_module.Workspaces(_DATA_DIR, NOTES_DIR, ACCESS.admin)
 
 # Préférences d'affichage (nom, teinte) : un fichier par compte, jamais partagé.
 PREFS = prefs_module.Preferences(_DATA_DIR / "prefs")
+
+# Premier réglage : tant qu'aucun identifiant Google n'est enregistré, le serveur
+# se protège derrière une page unique plutôt que de s'ouvrir au monde.
+SETUP = setup_module.Setup(_DATA_DIR, CONFIG_PATH)
+
+
+def setup_wall(handler: BaseHTTPRequestHandler) -> bool:
+    """Vrai quand il faut renvoyer vers /setup au lieu de servir l'application."""
+    if os.environ.get("JARVIS_AUTH", "").strip().lower() in {"off", "0", "false", "non"}:
+        return False  # développement local assumé
+    if not SETUP.pending():
+        return False
+    host = (handler.headers.get("Host") or "").split(":")[0].strip("[]").lower()
+    # En local, on laisse explorer l'interface ; en ligne, on ferme tout.
+    return host not in {"localhost", "127.0.0.1", "::1"}
 
 STATE_LOCK = threading.RLock()
 # Index par compte : {identité: {"notes": [...], "graph": {...}}}
@@ -749,8 +775,160 @@ class JarvisHandler(BaseHTTPRequestHandler):
             return True
         return False
 
+    # --- premier réglage ---------------------------------------------------
+    def public_address(self) -> str:
+        """Adresse publique déduite de la requête : rien à faire saisir."""
+        host = (self.headers.get("Host") or "localhost").strip()
+        return f"{request_scheme(self)}://{host}".rstrip("/")
+
+    def send_setup_page(
+        self,
+        *,
+        message: str = "",
+        status: HTTPStatus = HTTPStatus.OK,
+        valeurs: dict[str, str] | None = None,
+    ) -> None:
+        valeurs = valeurs or {}
+        echappe = {cle: html.escape(str(valeurs.get(cle, "")), quote=True) for cle in
+                   ("client_id", "client_secret", "admin_email")}
+        alerte = f'<p class="ko">{html.escape(message)}</p>' if message else ""
+        body = f"""<!doctype html><html lang="fr"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>JARVIS — premier réglage</title><style>
+body{{margin:0;min-height:100vh;display:grid;place-items:center;background:#050a10;color:#e8f8fc;
+font:14px/1.6 ui-sans-serif,system-ui,sans-serif;padding:20px}}
+.card{{width:100%;max-width:520px;padding:26px;border:1px solid rgba(126,232,244,.28);
+border-radius:14px;background:rgba(9,16,24,.9)}}
+h1{{font-size:19px;margin:0 0 6px;letter-spacing:.01em}}
+p{{margin:0 0 14px;color:#a9c3cd}}
+p.ko{{color:#ffb4b4;border-left:2px solid #ff6b6b;padding-left:10px}}
+label{{display:block;margin:14px 0 5px;font-weight:600;font-size:12px;letter-spacing:.08em;
+text-transform:uppercase;color:#8fb3c0}}
+input{{width:100%;box-sizing:border-box;padding:10px 12px;border-radius:9px;
+border:1px solid rgba(126,232,244,.25);background:#0a1420;color:#e8f8fc;font:14px ui-monospace,monospace}}
+code{{background:#0a1420;padding:2px 6px;border-radius:5px;font-size:12px}}
+button{{margin-top:20px;width:100%;padding:12px;border-radius:10px;border:0;cursor:pointer;
+background:#7de7f5;color:#04222b;font-weight:700;font-size:15px}}
+small{{display:block;color:#7f9aa6;margin-top:6px}}
+</style></head><body><div class="card">
+<h1>Premier réglage de JARVIS</h1>
+<p>Cette page n’existe qu’une fois. Elle disparaît dès que vous validez.</p>
+{alerte}
+<form method="post" action="/setup">
+<label for="jeton">Code d’installation</label>
+<input id="jeton" name="token" autocomplete="off" spellcheck="false"
+ placeholder="le code affiché par le serveur">
+<small>Il s’affiche au démarrage du serveur : <code>journalctl -u jarvis -n 20</code></small>
+<label for="cid">ID client Google</label>
+<input id="cid" name="client_id" value="{echappe['client_id']}" autocomplete="off"
+ spellcheck="false" placeholder="…apps.googleusercontent.com">
+<label for="csec">Code secret Google</label>
+<input id="csec" name="client_secret" value="{echappe['client_secret']}" autocomplete="off"
+ spellcheck="false" placeholder="GOCSPX-…">
+<label for="mail">Votre adresse Gmail</label>
+<input id="mail" name="admin_email" value="{echappe['admin_email']}" autocomplete="off"
+ spellcheck="false" placeholder="vous@gmail.com">
+<small>Seule cette adresse pourra entrer. D’autres comptes s’ajoutent ensuite,
+dans ⚙ Réglages → Accès.</small>
+<small>Adresse publique détectée : <code>{html.escape(self.public_address())}</code></small>
+<button type="submit">Enregistrer et activer la connexion</button>
+</form></div></body></html>""".encode("utf-8")
+        self.send_response(status)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("X-Frame-Options", "DENY")
+        self.end_headers()
+        self.wfile.write(body)
+
+    def send_setup_done(self) -> None:
+        adresse = html.escape(self.public_address(), quote=True)
+        body = f"""<!doctype html><html lang="fr"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>JARVIS — réglage terminé</title><style>
+body{{margin:0;min-height:100vh;display:grid;place-items:center;background:#050a10;color:#e8f8fc;
+font:14px/1.6 ui-sans-serif,system-ui,sans-serif;padding:20px}}
+.card{{max-width:460px;padding:26px;border:1px solid rgba(126,232,244,.28);border-radius:14px}}
+h1{{font-size:19px;margin:0 0 8px}}p{{color:#a9c3cd;margin:0 0 18px}}
+a{{display:inline-block;padding:11px 18px;border-radius:10px;background:#7de7f5;
+color:#04222b;font-weight:700;text-decoration:none}}
+</style></head><body><div class="card">
+<h1>C’est enregistré.</h1>
+<p>La connexion Google est active. Cette page ne s’ouvrira plus.</p>
+<a href="/auth/login">Se connecter avec Google</a>
+</div></body></html>""".encode("utf-8")
+        self.send_response(HTTPStatus.OK)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Cache-Control", "no-store")
+        self.end_headers()
+        self.wfile.write(body)
+
+    def handle_setup_post(self) -> None:
+        """Enregistre les identifiants saisis dans le navigateur."""
+        if not SETUP.pending():
+            self.send_setup_page(
+                message="Ce serveur est déjà configuré.",
+                status=HTTPStatus.GONE,
+            )
+            return
+        length_text = self.headers.get("Content-Length", "0")
+        try:
+            length = int(length_text)
+        except ValueError:
+            length = 0
+        if length <= 0 or length > MAX_BODY_BYTES:
+            self.send_setup_page(message="Formulaire vide ou trop volumineux.",
+                                 status=HTTPStatus.BAD_REQUEST)
+            return
+        brut = self.rfile.read(length).decode("utf-8", "replace")
+        if "application/json" in (self.headers.get("Content-Type") or ""):
+            try:
+                donnees = json.loads(brut)
+            except json.JSONDecodeError:
+                donnees = {}
+        else:
+            paires = urllib.parse.parse_qs(brut, keep_blank_values=True)
+            donnees = {cle: valeurs[0] for cle, valeurs in paires.items()}
+        if not isinstance(donnees, dict):
+            donnees = {}
+
+        try:
+            if not SETUP.check_token(donnees.get("token")):
+                raise setup_module.SetupError(
+                    "Code d’installation incorrect. Il s’affiche dans le journal du serveur."
+                )
+            SETUP.apply(donnees, self.public_address())
+        except setup_module.SetupError as exc:
+            self.send_setup_page(message=str(exc), status=HTTPStatus.BAD_REQUEST,
+                                 valeurs={k: str(donnees.get(k) or "") for k in
+                                          ("client_id", "client_secret", "admin_email")})
+            return
+        except OSError:
+            self.send_setup_page(message="Impossible d’écrire config.json (droits du dossier ?).",
+                                 status=HTTPStatus.INTERNAL_SERVER_ERROR)
+            return
+
+        reload_configuration()
+        print("[JARVIS] Premier réglage terminé : la connexion Google est active.")
+        self.send_setup_done()
+
     def do_GET(self) -> None:  # noqa: N802
         path = urlsplit(self.path).path
+        if path == "/setup":
+            if not SETUP.pending():
+                self.send_setup_page(message="Ce serveur est déjà configuré.",
+                                     status=HTTPStatus.GONE)
+                return
+            self.send_setup_page()
+            return
+        if path != "/api/session" and setup_wall(self):
+            # Tant que le premier réglage n'est pas fait, rien d'autre n'est servi :
+            # inutile d'exposer un cockpit encore sans porte.
+            if path.startswith("/api/"):
+                return self.send_json({"error": "Premier réglage à terminer.",
+                                       "setupRequired": True}, HTTPStatus.SERVICE_UNAVAILABLE)
+            return self.redirect("/setup")
         if path.startswith("/auth/") and self.handle_auth(path):
             return
         # Si la connexion Google est configurée, tout le reste exige une session.
@@ -1114,6 +1292,9 @@ class JarvisHandler(BaseHTTPRequestHandler):
 
     def do_POST(self) -> None:  # noqa: N802
         path = urlsplit(self.path).path
+        if path == "/setup":
+            return self.handle_setup_post()
+
         if path not in {"/api/chat", "/api/remember", "/api/settings", "/api/settings/test", "/api/access", "/api/prefs"}:
             self.send_json({"error": "Route introuvable."}, HTTPStatus.NOT_FOUND)
             return
@@ -1194,7 +1375,13 @@ def main() -> None:
         print("  Accès : connexion Google configurée mais aucune adresse autorisée — accès refusé.")
     else:
         print("  Accès : ouvert (aucune connexion demandée)")
-    if host not in ("127.0.0.1", "localhost", "::1") and not AUTH.ready:
+    if SETUP.pending() and os.environ.get("JARVIS_AUTH", "").strip().lower() not in {"off", "0", "false", "non"}:
+        code = SETUP.token()
+        print("  Premier réglage à terminer.")
+        print(f"  Ouvrez {AUTH.public_url or 'https://votre-domaine'}/setup et saisissez ce code :")
+        print(f"      {code}")
+        print("  (Le code change à chaque nouveau réglage ; la page disparaît ensuite.)")
+    if host not in ("127.0.0.1", "localhost", "::1") and not AUTH.ready and not SETUP.pending():
         print("  ⚠  Écoute exposée sans connexion Google : vos notes sont accessibles sur le réseau.")
     print(f"  Ouvrez : http://localhost:{port}  (Chrome ou Edge pour la dictée)\n")
     try:

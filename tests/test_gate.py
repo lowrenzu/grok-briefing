@@ -67,7 +67,7 @@ def copie_du_projet() -> Path:
     import shutil
 
     app = Path(tempfile.mkdtemp(prefix="jarvis-gate-app-"))
-    for fichier in ("server.py", "access.py", "auth.py", "prefs.py",
+    for fichier in ("server.py", "access.py", "auth.py", "prefs.py", "setup.py",
                     "workspaces.py", "ai_providers.py", "build.py", "config.example.json"):
         shutil.copy2(ROOT / fichier, app / fichier)
     for dossier in ("viewer", "examples"):

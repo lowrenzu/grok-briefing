@@ -15,6 +15,23 @@ redémarrage : cette archive est le seul moyen de ne rien perdre. Sur un serveur
 avec disque (VPS, Render Starter), les notes sont conservées sur place, et une
 mise à jour du programme ne les touche pas.
 
+## Premier réglage, sans confier de secret
+
+Une installation neuve peut démarrer **sans identifiants** :
+
+    sudo JARVIS_SETUP_PAGE=1 bash install.sh
+
+Le serveur affiche alors dans son journal un **code d'installation** de 8
+caractères. La personne ouvre `https://<domaine>/setup`, saisit ce code, puis
+colle elle-même son ID client, son code secret et son adresse Gmail. La page
+écrit `config.json` (droits 600), active la connexion Google sans redémarrage,
+puis **se referme définitivement**.
+
+Tant que ce réglage n'est pas fait, rien d'autre n'est servi : toute requête
+venue d'Internet est renvoyée vers `/setup` (l'interface locale, elle, reste
+consultable). Les secrets ne passent donc par aucune conversation, aucun
+fichier partagé, aucun message.
+
 ## Si la configuration est incomplète
 
 Dès que les identifiants Google sont présents, JARVIS **ferme** l'accès. Une liste

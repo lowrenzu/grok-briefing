@@ -80,7 +80,21 @@ chmod 700 "$APP_DIR/data"   # notes personnelles : un dossier par compte
 ok "$(find "$APP_DIR" -type f | wc -l) fichiers copiés"
 
 # ---------------------------------------------------------------- configuration
-if [ ! -f "$CONFIG" ]; then
+if [ "${JARVIS_SETUP_PAGE:-0}" = "1" ]; then
+    # Installation SANS identifiants : le proprietaire les saisit lui-meme
+    # dans son navigateur, sur /setup. Aucun secret ne circule par message.
+    if [ ! -f "$CONFIG" ]; then
+        python3 - "$CONFIG" <<'PYCFG'
+import json, sys
+with open(sys.argv[1], "w", encoding="utf-8") as fh:
+    json.dump({"notes_dir": "examples/demo-notes"}, fh, ensure_ascii=False, indent=2)
+    fh.write("\n")
+PYCFG
+        ok "config.json minimal ecrit (identifiants a saisir dans le navigateur)"
+    else
+        ok "config.json deja present (conserve)"
+    fi
+elif [ ! -f "$CONFIG" ]; then
     say "Identifiants Google"
     echo "  ID client, code secret (Google Auth Platform → Clients), puis l'adresse administrateur."
     read -rp "  ID client      : " CLIENT_ID
@@ -225,3 +239,21 @@ cat <<EOF
   Ensuite, https://$DOMAIN affiche la connexion Google : toi seul entres.
 
 EOF
+
+if [ "${JARVIS_SETUP_PAGE:-0}" = "1" ]; then
+    echo "  ┌──────────────────────────────────────────────────────────────┐"
+    echo "  │  DERNIER PAS : le proprietaire, pas toi                      │"
+    echo "  └──────────────────────────────────────────────────────────────┘"
+    echo
+    echo "  Aucun identifiant n'a ete saisi ici, c'est voulu."
+    systemctl restart jarvis >/dev/null 2>&1 || true
+    sleep 2
+    CODE_SETUP=$(journalctl -u jarvis -n 40 --no-pager 2>/dev/null | grep -Eo '^[[:space:]]+[0-9a-f]{8}$' | tail -1 | tr -d ' ')
+    echo "  Code d'installation (8 caracteres, valable une fois) :"
+    echo
+    echo "      ${CODE_SETUP:-<relance : journalctl -u jarvis -n 40>}"
+    echo
+    echo "  Ne transmets QUE ce code. Le proprietaire ouvrira"
+    echo "  https://$DOMAIN/setup et y collera lui-meme ses identifiants."
+    echo
+fi

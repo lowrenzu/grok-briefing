@@ -1,38 +1,31 @@
-MESSAGE À TRANSMETTRE À L'AGENT D'ANNA
+DEMANDE À TRANSMETTRE À L'AGENT D'ANNA
 =====================================
 
-Objet : mettre JARVIS en ligne sur https://jarvis.gabrielleorpel.com
+Bonjour,
 
+Peux-tu mettre en ligne une petite application sur le serveur, sur
+https://jarvis.gabrielleorpel.com ? Elle n'a AUCUNE dépendance à installer
+(Python 3 standard seul : ni pip, ni npm, rien à compiler), et elle gère
+elle-même son certificat HTTPS via Caddy.
 
-CONTEXTE TECHNIQUE
-------------------
-Application Python 3, sans aucune dépendance (bibliothèque standard seule) :
-pas de pip, pas de npm, rien à compiler. Elle sert une interface web et
-appelle éventuellement une API d'IA.
-
-Dépôt public :  https://github.com/lowrenzu/grok-briefing
-BRANCHE À UTILISER : arena/b5439b0b-grok-briefing
-
-  ⚠️ Ne PAS prendre la branche par défaut (`film`) : elle est en retard et ne
-  contient pas le module `prefs.py` ni les dernières protections d'accès.
-
-Le dépôt est PUBLIC : aucun secret ne doit y être écrit (GitHub refuserait
-le push de toute façon). Les identifiants vont uniquement dans
-/opt/jarvis/config.json, en chmod 600.
+Important : **je ne te donnerai aucun mot de passe ni aucun identifiant.**
+C'est volontaire. L'application s'installe « vide » et c'est moi qui saisirai
+mes identifiants moi-même, dans mon navigateur, à la fin. Le seul chose que
+j'attends de toi, c'est un code de 8 caractères affiché à la fin (voir point 4).
 
 
 1. DNS (prérequis absolu)
 -------------------------
 Chez le gestionnaire du domaine gabrielleorpel.com :
 
-    A      jarvis   <adresse IPv4 du serveur>
+    A      jarvis   <adresse IPv4 de ce serveur>
     AAAA   jarvis   <adresse IPv6, si le serveur en a une>
 
 Vérification :  dig +short jarvis.gabrielleorpel.com
-                → doit renvoyer l'IPv4 du serveur
+                → doit renvoyer l'IPv4 de ce serveur.
 
 Le domaine principal existe déjà ; c'est seulement le sous-domaine « jarvis »
-qui manque. Tant qu'il manque, aucun certificat HTTPS ne peut être émis.
+qui manque. Sans lui, aucun certificat ne peut être émis.
 
 
 2. Récupérer le code
@@ -42,104 +35,83 @@ qui manque. Tant qu'il manque, aucun certificat HTTPS ne peut être émis.
     python3 -m zipfile -e jarvis.zip .
     cd grok-briefing-arena-b5439b0b-grok-briefing
 
+BRANCHE À UTILISER : arena/b5439b0b-grok-briefing
+  ⚠️ Ne pas prendre la branche par défaut (`film`) : elle est en retard et ne
+  contient ni le module `prefs.py`, ni `setup.py`, ni les protections d'accès.
 
-3. Installer
-------------
-    sudo bash install.sh
+Le dépôt est public : aucun secret ne doit y être écrit.
 
-Ce que fait le script :
-  - installe python3 et Caddy (certificat HTTPS automatique, Let's Encrypt) ;
-  - copie l'application dans /opt/jarvis (utilisateur système `jarvis`) ;
-  - crée /opt/jarvis/data (700) : un sous-dossier par compte ;
-  - écrit un service systemd `jarvis` qui écoute sur 127.0.0.1:4700 ;
-  - ajoute un bloc au Caddyfile (sauvegarde d'abord s'il existe déjà) ;
-  - n'ouvre pas le port 4700 sur Internet.
 
-Le script est rejouable : relancé, il met simplement à jour l'application.
-Il posera 3 questions, réponses au point 4.
+3. Installer — SANS identifiants
+--------------------------------
+    sudo JARVIS_SETUP_PAGE=1 bash install.sh
+
+Le script installe python3 et Caddy, copie l'application dans /opt/jarvis
+(utilisateur système `jarvis`), crée /opt/jarvis/data (700, un sous-dossier par
+compte), écrit un service systemd qui écoute sur 127.0.0.1:4700, et ajoute un
+bloc au Caddyfile (avec sauvegarde s'il existe déjà).
+
+Avec JARVIS_SETUP_PAGE=1 :
+  - il ne pose AUCUNE question et n'écrit aucun identifiant ;
+  - le service démarre volontairement « non configuré » : il n'affiche pas
+    l'application, seulement une page de premier réglage ;
+  - donc rien n'est exposé pendant ce temps.
 
 Si un autre frontal web (nginx/apache) tient déjà 80/443 :
-    sudo JARVIS_SKIP_CADDY=1 bash install.sh
+    sudo JARVIS_SETUP_PAGE=1 JARVIS_SKIP_CADDY=1 bash install.sh
 puis ajouter soi-même le reverse proxy vers 127.0.0.1:4700.
 
 
-4. Les trois valeurs à saisir
------------------------------
-ID client      : 1005904286480-nqdal16846ed5m91jmn9t6s8bs31hfqn.apps.googleusercontent.com
-                 (identifiant public : le code secret, lui, reste privé)
-Code secret    : <à me demander au moment de lancer install.sh,
-                   je ne l'écris pas ici — ce sont des valeurs privées>
-Adresse admin  : funk.e.lee@gmail.com
+4. CE QUE J'ATTENDS DE TOI : le code d'installation
+---------------------------------------------------
+À la fin, le script affiche un code de 8 caractères, ou bien :
 
-  ⚠️ PIÈGE À CONNAÎTRE : une version antérieure de l'identifiant circulait avec
-  un « j » de trop (…ed5m9j1jmn…) et fait échouer la connexion avec
-  « Error 401: invalid_client — The OAuth client was not found ».
-  L'identifiant correct est celui ci-dessus, 73 caractères, …ed5m91jmn…
+    journalctl -u jarvis -n 40
 
-  Le code secret est un secret : il ne doit apparaître que dans
-  /opt/jarvis/config.json (chmod 600, propriétaire `jarvis`).
+Transmets-moi UNIQUEMENT ce code (8 lettres/chiffres). Il ne vaut qu'une fois
+et ne donne accès à rien : il sert juste à ouvrir la page de réglage pour moi.
+
+Ne me transmets aucun autre secret, et ne crée aucun mot de passe.
 
 
 5. Vérifications à faire et à me transmettre
 --------------------------------------------
-    dig +short jarvis.gabrielleorpel.com          → IPv4 du serveur
-    systemctl is-active jarvis                    → active
-    curl -I http://127.0.0.1:4700                 → 302 vers /auth/login
-    curl -I https://jarvis.gabrielleorpel.com     → 302 vers /auth/login
-                                                    + certificat valide
-    journalctl -u jarvis -n 30
+    dig +short jarvis.gabrielleorpel.com     → IPv4 du serveur
+    systemctl is-active jarvis               → active
+    curl -I https://jarvis.gabrielleorpel.com
+        → 302 vers /setup  (et certificat valide)
+    curl -I http://127.0.0.1:4700
+        → 302 vers /setup
+    journalctl -u jarvis -n 40
 
-La dernière commande doit afficher une ligne du type :
-
-    Accès : connexion Google obligatoire (1 adresse(s)) · administrateur …
-
-Si elle affiche « Accès : ouvert (aucune connexion demandée) », quelque chose
-désactive la porte : chercher JARVIS_AUTH=off dans l'environnement, ou un
-config.json absent. **Ne pas laisser le service en ligne dans cet état** :
-sans la porte, les notes sont accessibles à qui connaît l'adresse.
+La page /setup DOIT s'afficher. Si l'application répond autre chose, arrête-toi
+et envoie-moi la sortie de `journalctl -u jarvis -n 50`.
 
 
-6. À ne pas faire
+6. Après (c'est moi qui le fais)
+--------------------------------
+J'ouvrirai https://jarvis.gabrielleorpel.com/setup, je saisirai le code, mon ID
+client Google, mon code secret et mon adresse Gmail. La page se referme
+définitivement ensuite, et l'application devient privée (connexion Google
+obligatoire).
+
+Il restera alors à autoriser cette adresse de retour dans Google :
+    https://jarvis.gabrielleorpel.com/auth/callback
+(je m'en occupe aussi).
+
+
+7. À ne pas faire
 -----------------
-  - ne pas exposer le port 4700 directement sur Internet (Caddy est le seul
-    frontal, JARVIS reste en 127.0.0.1) ;
-  - ne pas lancer Caddy en mode `autocert` sur un autre port 443 en parallèle ;
-  - ne pas écrire les secrets dans le dépôt, même temporairement ;
-  - ne pas mettre JARVIS_AUTH=off sur un serveur accessible depuis Internet.
+  - ne pas exposer le port 4700 sur Internet (Caddy seul en frontal) ;
+  - ne pas mettre JARVIS_AUTH=off : c'est l'ouverture totale, pour du
+    développement local uniquement ;
+  - ne pas écrire de secret dans le dépôt ;
+  - ne pas modifier config.json à la main : il se remplit tout seul par la page.
 
-Persistance (important)
-------------------------
-Les données vivent dans /opt/jarvis/data (700) : un sous-dossier par compte
-(notes), plus les noms et teintes choisis. access.json garde la liste des
-comptes autorisés.
-
-Une mise à jour (relancer install.sh) NE TOUCHE PAS à ces données : le rsync du
-script exclut data/, access.json, config.json et les captures. C'est vérifié par
-un test du dépôt (tests/test_install_keep.py).
-
-Sauvegarde manuelle côté utilisateur : ⚙ Réglages → « Télécharger mes notes »
-(archive .zip de ses propres fichiers, jamais ceux d'un autre compte).
+Persistance : les données vivent dans /opt/jarvis/data (notes par compte, noms,
+teintes) et /opt/jarvis/access.json. Une mise à jour (relancer install.sh) ne
+les touche pas : le rsync du script les exclut. C'est vérifié par un test du
+dépôt (tests/test_install_keep.py).
 
 
-Deux exceptions possibles, utiles à connaître :
-  - JARVIS_DATA_DIR : dossier racine des données (par défaut /opt/jarvis/data) ;
-  - JARVIS_NOTES_DIR : dossier de notes du propriétaire (par défaut
-    examples/demo-notes, soit les 25 notes de démonstration).
-
-
-7. Côté Google (déjà fait, pour information)
---------------------------------------------
-L'adresse de retour https://jarvis.gabrielleorpel.com/auth/callback est déjà
-autorisée dans le client OAuth « JARVIS web » (projet JarvisLowrenzu).
-
-
-8. Ce que j'attends en retour
------------------------------
-Les 5 résultats du point 5, en particulier la ligne du journal. S'il y a un
-échec, la sortie de `journalctl -u jarvis -n 50` suffit pour diagnostiquer.
-
-
-NOTE : une instance de secours tourne déjà sur Render
-(https://jarvis-lowrenzu.onrender.com). Elle n'est pas un obstacle : quand le
-domaine fonctionnera, on pourra l'arrêter. Si le DNS ne peut pas être créé,
-cette instance suffit à l'usage.
+Merci ! Dis-moi juste : « DNS fait », puis le code de 8 caractères.
