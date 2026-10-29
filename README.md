@@ -3,7 +3,11 @@
 ## Le plus simple : sur votre ordinateur
 
 Décompressez l'archive, puis double-cliquez sur `LANCER-JARVIS.bat` (Windows)
-ou `Lancer-JARVIS.command` (Mac). Le navigateur s'ouvre sur JARVIS.
+ou `Lancer-JARVIS.command` (Mac).
+
+Sur Windows 11, lancez une fois `INSTALLER-APPLICATION.bat` : JARVIS s'ouvre
+alors dans sa propre fenêtre (Edge WebView2, déjà présent dans Windows), sans
+navigateur autour. Sans cette étape, il s'ouvre simplement dans le navigateur.
 
 Aucun compte, aucun mot de passe : le serveur n'écoute que sur `127.0.0.1`. Vos
 notes vivent dans le dossier `mes-notes`, à côté de `server.py`.
