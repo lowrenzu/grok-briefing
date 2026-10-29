@@ -1,0 +1,32 @@
+DEMANDE À TRANSMETTRE À L'AGENT D'ANNA — version courte
+=======================================================
+
+Bonjour,
+
+Je voudrais simplement que le sous-domaine ci-dessous pointe vers mon
+application, déjà en ligne chez un hébergeur :
+
+    jarvis.gabrielleorpel.com   →   jarvis-lowrenzu.onrender.com
+
+Il n'y a RIEN à installer, aucun mot de passe, aucun accès serveur à me
+demander. Une seule ligne DNS suffit.
+
+À créer chez le gestionnaire du domaine gabrielleorpel.com :
+
+    Type    : CNAME
+    Nom     : jarvis
+    Valeur  : jarvis-lowrenzu.onrender.com
+    TTL     : 3600 (ou valeur par défaut)
+
+Si le gestionnaire n'accepte pas de CNAME et demande une IP, dis-le-moi : je
+te donnerai l'adresse à utiliser à la place.
+
+Vérification, une fois créé :
+
+    dig +short jarvis.gabrielleorpel.com
+    → doit renvoyer : jarvis-lowrenzu.onrender.com  (ou son adresse)
+
+La propagation prend de quelques minutes à quelques heures.
+
+Merci ! Une fois le DNS en place, je termine la configuration de mon côté
+(certificat et autorisation Google s'obtiennent automatiquement).
