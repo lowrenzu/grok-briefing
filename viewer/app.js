@@ -1957,7 +1957,7 @@
   const ACCENT_KEY = "jarvis-accent";
 
   function applyAccent(name, { remember = true } = {}) {
-    const value = ["violet", "ambre"].includes(name) ? name : "";
+    const value = ["violet", "ambre", "prune"].includes(name) ? name : "";
     if (value) document.documentElement.dataset.accent = value;
     else delete document.documentElement.dataset.accent;
     for (const button of document.querySelectorAll("[data-accent-choice]")) {
@@ -1976,6 +1976,51 @@
     let saved = "";
     try { saved = localStorage.getItem(ACCENT_KEY) || ""; } catch { saved = ""; }
     applyAccent(saved, { remember: false });
+  }
+
+  // --- Nom affiché : préférence du compte, pas de l'installation ------------
+  const NAME_KEY = "jarvis-name";
+  const DEFAULT_NAME = "JARVIS";
+
+  function applyName(raw) {
+    const name = String(raw || "").trim() || DEFAULT_NAME;
+    for (const slot of document.querySelectorAll(".js-name")) slot.textContent = name;
+    document.title = `${name} — Personal Intelligence`;
+    const brand = $("#brandLink");
+    if (brand) brand.setAttribute("aria-label", `${name}, accueil`);
+    for (const field of document.querySelectorAll("[data-name-placeholder]")) {
+      field.placeholder = field.dataset.namePlaceholder.replace("{name}", name);
+    }
+    const voiceToggle = $("#voiceToggle");
+    if (voiceToggle) voiceToggle.title = `Activer la voix et l’animation de ${name}`;
+  }
+
+  async function loadPrefs() {
+    try {
+      const response = await fetch("/api/prefs", { headers: { Accept: "application/json" } });
+      if (!response.ok) return;
+      const data = await response.json();
+      applyName(data.name);
+      applyAccent(data.accent || "", { remember: true });
+      const field = $("#settingsName");
+      if (field) {
+        field.value = data.customName ? data.name : "";
+        field.placeholder = data.defaultName || DEFAULT_NAME;
+      }
+    } catch {
+      /* hors ligne : les valeurs déjà affichées restent */
+    }
+  }
+
+  async function savePrefs(values) {
+    const response = await fetch("/api/prefs", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Jarvis-Settings": "1" },
+      body: JSON.stringify(values),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.error || "Enregistrement impossible.");
+    return data;
   }
 
   async function openSettings() {
@@ -2076,7 +2121,38 @@
     const settingsButton = $("#settingsButton");
     if (settingsButton) settingsButton.addEventListener("click", openSettings);
     for (const swatch of document.querySelectorAll("[data-accent-choice]")) {
-      swatch.addEventListener("click", () => applyAccent(swatch.dataset.accentChoice || ""));
+      swatch.addEventListener("click", async () => {
+        const choice = swatch.dataset.accentChoice || "";
+        applyAccent(choice);
+        try {
+          await savePrefs({ accent: choice });
+        } catch (error) {
+          setSettingsStatus(error.message, "ko");
+        }
+      });
+    }
+
+    // Le nom s'enregistre seul : Anna peut renommer son JARVIS sans être
+    // administratrice, donc sans passer par « Enregistrer » des réglages d'IA.
+    const nameField = $("#settingsName");
+    if (nameField) {
+      const commitName = async () => {
+        const value = nameField.value.trim();
+        applyName(value);
+        nameField.value = value;
+        try {
+          const saved = await savePrefs({ name: value });
+          applyName(saved.name);
+          nameField.value = saved.customName ? saved.name : "";
+          setSettingsStatus(value ? `Ce JARVIS s’appelle désormais ${saved.name}.` : "Nom par défaut rétabli.", "ok");
+        } catch (error) {
+          setSettingsStatus(error.message, "ko");
+        }
+      };
+      nameField.addEventListener("change", commitName);
+      nameField.addEventListener("keydown", (event) => {
+        if (event.key === "Enter") { event.preventDefault(); commitName(); }
+      });
     }
     if ($("#closeSettings")) $("#closeSettings").addEventListener("click", closeSettings);
     if (settingsDialog) {
@@ -2164,6 +2240,7 @@
   updateGraph(graph);
   createStars();
   loadAccent();   // avant le premier dessin : la teinte est déjà en place
+  loadPrefs();    // puis le nom et la teinte enregistrés pour ce compte
   revealCore();
   wireEvents();
   resizeCanvas();

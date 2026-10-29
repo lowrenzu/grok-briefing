@@ -205,6 +205,8 @@ data/users/<empreinte de l'adresse>/notes/     # espace de chaque invité
   sur un hébergeur, pointez-la vers un volume persistant.
 - Le nom du dossier est une empreinte : les adresses e-mail n'apparaissent pas sur le disque.
 - `data/` est ignoré par Git : ces notes ne partent jamais dans le dépôt.
+- `data/prefs/` contient le nom et la teinte choisis par chaque compte : un fichier par
+  personne, nommé par une empreinte, en droits `600`.
 - Pour sauvegarder l'ensemble : le dossier de notes du propriétaire **et** `data/`.
 
 ### 1 bis. Vérifier que la porte est fermée

@@ -4,6 +4,20 @@
 
 Un assistant personnel **local-first** inspiré du *JARVIS Prompt Pack* et de la maquette fournie : hologramme central de JARVIS, cockpit de briefing, profils d'agents et suggestions de démonstration. Il transforme aussi des notes Markdown en galaxie de connaissances, répond à des questions à partir de ces notes, peut parler et retenir de nouveaux souvenirs.
 
+## Personnaliser : nom et teinte
+
+Dans **Réglages → Identité**, chaque compte choisit :
+
+- le **nom affiché** (24 caractères au plus) — il remplace « JARVIS » partout :
+  marque, titre de l'onglet, placeholder du chat, messages d'attente ;
+- la **teinte d'accent** : Bleu JARVIS, Violet, Ambre ou Prune.
+
+Ces préférences sont **propres à chaque compte** : Anna peut appeler son JARVIS
+autrement et le teinter en prune sans que cela change quoi que ce soit chez
+quiconque. Elles sont enregistrées côté serveur (`data/prefs/`), donc retrouvées
+sur tous les appareils du même compte, et le choix de teinte est aussi gardé dans
+le navigateur pour s'afficher sans clignotement au chargement.
+
 ## Installer JARVIS sur le téléphone
 
 JARVIS est une **application web installable** (PWA) : une fois en ligne, il
@@ -89,3 +103,7 @@ python3 tests/test_isolation.py
 Ce test démarre un JARVIS complet avec un faux fournisseur Google, connecte deux
 personnes différentes, et vérifie que ni les notes, ni les souvenirs, ni le
 graphe, ni la liste des comptes ne passent d'un espace à l'autre.
+
+```bash
+npm install jsdom && node tests/ui_check.js   # interface : teintes et nom
+```

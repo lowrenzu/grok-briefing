@@ -25,6 +25,7 @@ import ai_providers
 import auth as auth_module
 from build import DEFAULT_NOTES_DIR, ROOT, build_links, normalize, public_graph, read_notes, resolve_notes_dir, write_graph_data
 import workspaces as workspaces_module
+import prefs as prefs_module
 
 CONFIG_PATH = ROOT / "config.json"
 MAX_BODY_BYTES = 24_000
@@ -109,6 +110,9 @@ NOTES_DIR = resolve_notes_dir(os.environ.get("JARVIS_NOTES_DIR") or CONFIG.get("
 # Un espace de notes par compte : chacun son JARVIS, aucun mélange.
 _DATA_DIR = Path(os.environ.get("JARVIS_DATA_DIR") or (ROOT / "data"))
 WORKSPACES = workspaces_module.Workspaces(_DATA_DIR, NOTES_DIR, ACCESS.admin)
+
+# Préférences d'affichage (nom, teinte) : un fichier par compte, jamais partagé.
+PREFS = prefs_module.Preferences(_DATA_DIR / "prefs")
 
 STATE_LOCK = threading.RLock()
 # Index par compte : {identité: {"notes": [...], "graph": {...}}}
@@ -741,6 +745,8 @@ class JarvisHandler(BaseHTTPRequestHandler):
         if path == "/api/graph":
             _notes, graph = current_state(actor_of(self))
             return self.send_json(graph)
+        if path == "/api/prefs":
+            return self.send_json(PREFS.public(actor_of(self)))
         if path == "/api/access":
             return self.send_json(self.access_view())
         if path == "/api/settings":
@@ -857,6 +863,25 @@ class JarvisHandler(BaseHTTPRequestHandler):
             "authRequired": AUTH.ready,
         })
         return payload
+
+    def handle_prefs(self, body: dict[str, Any]) -> None:
+        """Nom et teinte du compte connecté : personne ne touche à ceux d'un autre."""
+        if self.headers.get("X-Jarvis-Settings") != "1":
+            self.send_json({"error": "Requête refusée : en-tête JARVIS manquant."}, HTTPStatus.FORBIDDEN)
+            return
+        actor = actor_of(self)
+        try:
+            PREFS.write(actor, body)
+        except prefs_module.PrefError as exc:
+            self.send_json({"error": str(exc)}, HTTPStatus.BAD_REQUEST)
+            return
+        except OSError:
+            self.send_json({"error": "Impossible d’enregistrer cette préférence."},
+                           HTTPStatus.INTERNAL_SERVER_ERROR)
+            return
+        payload = PREFS.public(actor)
+        payload["ok"] = True
+        self.send_json(payload)
 
     def handle_access(self, path: str, body: dict[str, Any]) -> None:
         """Ajout et retrait d'adresses : réservé à l'administrateur connecté."""
@@ -984,7 +1009,7 @@ class JarvisHandler(BaseHTTPRequestHandler):
 
     def do_POST(self) -> None:  # noqa: N802
         path = urlsplit(self.path).path
-        if path not in {"/api/chat", "/api/remember", "/api/settings", "/api/settings/test", "/api/access"}:
+        if path not in {"/api/chat", "/api/remember", "/api/settings", "/api/settings/test", "/api/access", "/api/prefs"}:
             self.send_json({"error": "Route introuvable."}, HTTPStatus.NOT_FOUND)
             return
         try:
@@ -996,6 +1021,9 @@ class JarvisHandler(BaseHTTPRequestHandler):
         if AUTH.ready and current_user(self) is None:
             self.send_json({"error": "Connexion requise.", "authRequired": True}, HTTPStatus.UNAUTHORIZED)
             return
+
+        if path == "/api/prefs":
+            return self.handle_prefs(body)
 
         if path == "/api/access":
             return self.handle_access(path, body)

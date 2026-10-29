@@ -65,6 +65,18 @@ class Session:
         with self.opener.open(f"{BASE}/auth/login", timeout=5) as response:
             response.read()
 
+    def post(self, path: str, payload: dict, settings_header: bool = True):
+        headers = {"Content-Type": "application/json"}
+        if settings_header:
+            headers["X-Jarvis-Settings"] = "1"
+        request = urllib.request.Request(
+            f"{BASE}{path}", data=json.dumps(payload).encode(), headers=headers, method="POST")
+        try:
+            with self.opener.open(request, timeout=5) as response:
+                return response.status, json.loads(response.read().decode())
+        except urllib.error.HTTPError as exc:
+            return exc.code, json.loads(exc.read().decode() or "{}")
+
     def remember(self, text: str) -> None:
         request = urllib.request.Request(
             f"{BASE}/api/remember",
@@ -162,6 +174,35 @@ def main() -> int:
         anna_settings = anna.json("/api/settings")
         check("invité : chemin serveur masqué", anna_settings.get("notesDirResolved") == "")
         check("invité : espace personnel signalé", anna_settings.get("personalSpace") is True)
+
+        # --- préférences personnelles : nom et teinte ---
+        check("nom par défaut : JARVIS", me.json("/api/prefs").get("name") == "JARVIS")
+
+        code, saved = anna.post("/api/prefs", {"name": "Cortex", "accent": "prune"})
+        check("Anna renomme son JARVIS", code == 200 and saved.get("name") == "Cortex",
+              f"{code} {saved.get('name')}")
+        check("Anna choisit la teinte prune", saved.get("accent") == "prune")
+        check("le propriétaire n'est pas renommé", me.json("/api/prefs").get("name") == "JARVIS")
+        check("le propriétaire garde sa teinte", me.json("/api/prefs").get("accent") == "")
+
+        code, refused = me.post("/api/prefs", {"name": "Pirate"}, settings_header=False)
+        check("écriture sans en-tête refusée", code == 403, str(code))
+
+        code, refused = me.post("/api/prefs", {"name": "<b>x</b>"})
+        check("nom invalide refusé", code == 400, refused.get("error", "")[:44])
+
+        code, refused = me.post("/api/prefs", {"accent": "rouge"})
+        check("teinte inconnue refusée", code == 400, str(code))
+
+        code, reset = me.post("/api/prefs", {"name": ""})
+        check("nom remis par défaut", code == 200 and reset.get("name") == "JARVIS")
+
+        # Persistance : relire après écriture donne bien la valeur enregistrée.
+        check("préférence d'Anna relue", anna.json("/api/prefs").get("name") == "Cortex")
+        pref_files = list((tmp / "data" / "prefs").glob("*.json"))
+        check("un fichier de préférences par compte", len(pref_files) == 2, f"{len(pref_files)}")
+        check("aucune adresse en clair sur le disque",
+              not any("example" in f.name or "anna" in f.name or "moi" in f.name for f in pref_files))
 
         owner_files = {p.name for p in owner_notes.rglob("*.md")}
         guest_files = {p.name for d in (tmp / "data" / "users").iterdir() for p in d.rglob("*.md")}

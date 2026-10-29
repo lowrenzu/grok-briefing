@@ -6,7 +6,7 @@
  * Seules les ressources de présentation (styles, script, images, icônes) sont
  * conservées, pour que l'interface s'affiche instantanément.
  */
-const CACHE = "jarvis-shell-v2";
+const CACHE = "jarvis-shell-v3";
 
 const SHELL = [
   "/styles.css",

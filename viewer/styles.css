@@ -51,6 +51,19 @@
 }
 [data-accent="ambre"] .jarvis-core img { filter: hue-rotate(-146deg) saturate(1.05); }
 
+/* Prune : le magenta profond du fruit, éclairci pour rester lisible sur le fond. */
+[data-accent="prune"] {
+  --a1: 205, 143, 199;
+  --a2: 165, 104, 162;
+  --a3: 232, 182, 226;
+  --a4: 192, 126, 188;
+  --a5: 132, 79, 130;
+  --a6: 247, 218, 244;
+  --cyan: #d79ad0;
+  --line-bright: rgba(var(--a4), .42);
+}
+[data-accent="prune"] .jarvis-core img { filter: hue-rotate(118deg) saturate(.92); }
+
 * { box-sizing: border-box; }
 html, body { width: 100%; min-height: 100%; margin: 0; }
 body {
@@ -500,6 +513,7 @@ button:hover .chevron { color: var(--cyan); transform: translateX(2px); }
 .accent-dot-bleu { background: radial-gradient(circle at 35% 30%, #d8feff, #3dc9e7 62%, #1a6f88); color: #7de7f5; }
 .accent-dot-violet { background: radial-gradient(circle at 35% 30%, #ece2ff, #a06cf5 62%, #5b3a99); color: #c9a8ff; }
 .accent-dot-ambre { background: radial-gradient(circle at 35% 30%, #fff3d6, #e9b866 62%, #9a7231); color: #f0c987; }
+.accent-dot-prune { background: radial-gradient(circle at 35% 30%, #f7daf4, #cd8fc7 62%, #7a477a); color: #d79ad0; }
 .accent-note { margin: 8px 0 0; color: var(--dim); font-size: 9.5px; }
 
 .settings-note { margin: 2px 0 0; padding-top: 10px; border-top: 1px solid var(--line); color: #93a7b1; font-size: 10px; line-height: 1.5; }

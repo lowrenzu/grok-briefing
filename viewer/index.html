@@ -14,18 +14,18 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="JARVIS">
   <meta name="robots" content="noindex, nofollow">
-  <link rel="preload" as="image" type="image/avif" href="/assets/jarvis-core-ring.avif?v=20261029s" fetchpriority="high">
-  <link rel="preload" as="image" type="image/avif" href="/assets/jarvis-core-disc.avif?v=20261029s" fetchpriority="high">
-  <link rel="stylesheet" href="/styles.css?v=20261029s">
-  <script defer src="/graph-data.js?v=20261029s"></script>
-  <script defer src="/app.js?v=20261029s"></script>
+  <link rel="preload" as="image" type="image/avif" href="/assets/jarvis-core-ring.avif?v=20261029t" fetchpriority="high">
+  <link rel="preload" as="image" type="image/avif" href="/assets/jarvis-core-disc.avif?v=20261029t" fetchpriority="high">
+  <link rel="stylesheet" href="/styles.css?v=20261029t">
+  <script defer src="/graph-data.js?v=20261029t"></script>
+  <script defer src="/app.js?v=20261029t"></script>
 </head>
 <body>
   <div class="screen-shade" aria-hidden="true"></div>
   <header class="command-topbar">
-    <a class="brand" href="/" aria-label="JARVIS, accueil">
+    <a class="brand" href="/" id="brandLink" aria-label="JARVIS, accueil">
       <span class="brand-mark" aria-hidden="true"><span></span><span></span><span></span></span>
-      <span class="brand-word">JARVIS<span class="brand-period">.</span><small>PERSONAL INTELLIGENCE</small></span>
+      <span class="brand-word"><span class="js-name">JARVIS</span><span class="brand-period">.</span><small>PERSONAL INTELLIGENCE</small></span>
     </a>
     <div class="topbar-center"><span class="pulse-dot"></span><span id="connectionLabel">INITIALISATION</span><i></i><span class="location-tag">SANGUINET · FR</span><i></i><span id="topClock">--:--</span></div>
     <div class="topbar-right">
@@ -95,28 +95,28 @@
         <canvas id="galaxy" role="img" aria-label="Galaxie interactive de vos notes. Faites glisser pour tourner, cliquez sur une étoile pour ouvrir sa source."></canvas>
         <div class="stage-vignette" aria-hidden="true"></div>
         <div class="jarvis-core" id="jarvisCore" aria-hidden="true">
-          <span class="jarvis-core-layer core-ring"><img src="/assets/jarvis-core-ring.avif?v=20261029s" alt="" decoding="async" fetchpriority="high"></span>
-          <span class="jarvis-core-layer core-veil"><img src="/assets/jarvis-core-veil.avif?v=20261029s" alt="" decoding="async"></span>
+          <span class="jarvis-core-layer core-ring"><img src="/assets/jarvis-core-ring.avif?v=20261029t" alt="" decoding="async" fetchpriority="high"></span>
+          <span class="jarvis-core-layer core-veil"><img src="/assets/jarvis-core-veil.avif?v=20261029t" alt="" decoding="async"></span>
           <span class="jarvis-core-layer core-disc">
-            <img class="core-disc-base" src="/assets/jarvis-core-disc.avif?v=20261029s" alt="" decoding="async" fetchpriority="high">
-            <img class="core-voice-tint core-voice-violet" src="/assets/jarvis-core-hud-violet.avif?v=20261029s" alt="" decoding="async">
-            <img class="core-voice-tint core-voice-ambre" src="/assets/jarvis-core-hud-ambre.avif?v=20261029s" alt="" decoding="async">
+            <img class="core-disc-base" src="/assets/jarvis-core-disc.avif?v=20261029t" alt="" decoding="async" fetchpriority="high">
+            <img class="core-voice-tint core-voice-violet" src="/assets/jarvis-core-hud-violet.avif?v=20261029t" alt="" decoding="async">
+            <img class="core-voice-tint core-voice-ambre" src="/assets/jarvis-core-hud-ambre.avif?v=20261029t" alt="" decoding="async">
             <i class="core-disc-sweep"></i>
             <i class="core-disc-spark"></i>
           </span>
-          <span class="jarvis-core-layer core-light"><img src="/assets/jarvis-core-light.avif?v=20261029s" alt="" decoding="async"></span>
+          <span class="jarvis-core-layer core-light"><img src="/assets/jarvis-core-light.avif?v=20261029t" alt="" decoding="async"></span>
           <span class="jarvis-core-beam" aria-hidden="true"></span>
           <span class="jarvis-core-base" aria-hidden="true"></span>
         </div>
         <div class="node-labels" id="nodeLabels" aria-hidden="true"></div>
         <div class="stage-hud stage-hud-left"><span class="hud-label">SECTEUR ACTIF</span><b id="sectorLabel">TOUS LES THÈMES</b></div>
         <div class="stage-hud stage-hud-right"><span class="orbit-indicator"></span><span id="stageModeLabel">RÉSEAU LOCAL</span></div>
-        <div class="empty-state" id="emptyState" hidden><span class="empty-orb">✳</span><h2>Votre mémoire attend ses premières notes</h2><p>Ajoutez des fichiers Markdown <code>.md</code> dans votre dossier personnel, puis relancez JARVIS.</p></div>
+        <div class="empty-state" id="emptyState" hidden><span class="empty-orb">✳</span><h2>Votre mémoire attend ses premières notes</h2><p>Ajoutez des fichiers Markdown <code>.md</code> dans votre dossier personnel, puis relancez <span class="js-name">JARVIS</span>.</p></div>
         <div class="stage-hint" id="stageHint" role="status" aria-live="polite"><button class="hint-back" id="hintBack" type="button" hidden><span aria-hidden="true">←</span><span id="hintBackLabel">THÈMES</span></button><span id="stageHintText">VOS NOTES, CLASSÉES PAR THÈME <span class="hint-sep">·</span> CLIQUEZ SUR UN POINT</span><span class="hint-keys" aria-hidden="true">ÉCHAP</span></div>
       </div>
 
       <div class="graph-footer"><div class="legend" id="legend" aria-label="Groupes de notes"></div><div class="graph-footnote"><span class="mini-pulse"></span><span id="graphStatus">Index local prêt</span></div></div>
-      <section class="source-card" id="sourceCard" aria-live="polite" aria-label="Détail de la note sélectionnée"><div class="source-empty" id="sourceEmpty"><span class="source-empty-icon">⌘</span><span><b>Vos sources, en un clic</b><small>Sélectionnez une étoile ou demandez à JARVIS.</small></span></div><div class="source-content" id="sourceContent" hidden></div></section>
+      <section class="source-card" id="sourceCard" aria-live="polite" aria-label="Détail de la note sélectionnée"><div class="source-empty" id="sourceEmpty"><span class="source-empty-icon">⌘</span><span><b>Vos sources, en un clic</b><small>Sélectionnez une étoile ou demandez à <span class="js-name">JARVIS</span>.</small></span></div><div class="source-content" id="sourceContent" hidden></div></section>
     </section>
 
     <aside class="right-column" aria-label="Agents et assistant">
@@ -127,13 +127,13 @@
           <button class="voice-toggle" id="voiceToggle" type="button" aria-pressed="false" title="Activer la voix et l’animation de JARVIS"><span aria-hidden="true">◖</span><span id="voiceToggleLabel">VOIX OFF</span></button>
         </div>
         <div class="chat-scroll" id="chatMessages" role="log" aria-live="polite" aria-relevant="additions text"></div>
-        <div class="thinking-line" id="thinkingLine" hidden><span class="thinking-bars"><i></i><i></i><i></i></span><span id="thinkingText">JARVIS réfléchit…</span></div>
+        <div class="thinking-line" id="thinkingLine" hidden><span class="thinking-bars"><i></i><i></i><i></i></span><span id="thinkingText"><span class="js-name">JARVIS</span> réfléchit…</span></div>
         <div class="quick-prompts" id="quickPrompts" aria-label="Suggestions de questions"><span class="quick-label">POUR COMMENCER</span><div class="quick-list"><button type="button" data-prompt="Résume les notes disponibles.">Résume mes notes</button><button type="button" data-prompt="Que faut-il vérifier avant une sortie de pêche ?">Tester une note</button></div></div>
-        <form class="composer" id="chatForm"><label class="sr-only" for="questionInput">Votre message à JARVIS</label><textarea id="questionInput" rows="1" maxlength="4000" placeholder="Demandez à JARVIS…" autocomplete="off"></textarea><div class="composer-bottom"><div class="composer-hint"><span class="lock-icon" aria-hidden="true">◇</span><span id="privacyHint">Vos notes restent sur cet appareil</span></div><div class="composer-actions"><button class="mic-button" id="micButton" type="button" aria-label="Dicter un message" title="Dicter un message"><span aria-hidden="true">♬</span></button><button class="send-button" id="sendButton" type="submit" aria-label="Envoyer" title="Envoyer"><span>ENVOYER</span><b aria-hidden="true">↑</b></button></div></div></form>
-        <div class="assistant-foot"><span>JARVIS <span class="foot-separator">/</span> SECOND CERVEAU</span><span id="buildLabel">LOCAL FIRST</span></div>
+        <form class="composer" id="chatForm"><label class="sr-only" for="questionInput">Votre message à <span class="js-name">JARVIS</span></label><textarea id="questionInput" rows="1" maxlength="4000" placeholder="Demandez à JARVIS…" data-name-placeholder="Demandez à {name}…" autocomplete="off"></textarea><div class="composer-bottom"><div class="composer-hint"><span class="lock-icon" aria-hidden="true">◇</span><span id="privacyHint">Vos notes restent sur cet appareil</span></div><div class="composer-actions"><button class="mic-button" id="micButton" type="button" aria-label="Dicter un message" title="Dicter un message"><span aria-hidden="true">♬</span></button><button class="send-button" id="sendButton" type="submit" aria-label="Envoyer" title="Envoyer"><span>ENVOYER</span><b aria-hidden="true">↑</b></button></div></div></form>
+        <div class="assistant-foot"><span><span class="js-name">JARVIS</span> <span class="foot-separator">/</span> SECOND CERVEAU</span><span id="buildLabel">LOCAL FIRST</span></div>
       </aside>
       <section class="glass-card agents-card">
-        <div class="card-heading"><div><div class="eyebrow">ÉQUIPE JARVIS</div><h2>Agents disponibles</h2></div><span class="agents-count">8 <i>PROFILS</i></span></div>
+        <div class="card-heading"><div><div class="eyebrow">ÉQUIPE <span class="js-name">JARVIS</span></div><h2>Agents disponibles</h2></div><span class="agents-count">8 <i>PROFILS</i></span></div>
         <div class="demo-note" id="agentLiveNote">MÉTÉO EN COURS DE CONNEXION · 7 PROFILS EN DÉMO</div>
         <div class="agent-list">
           <button class="agent-row" type="button" data-prompt="Quelles notes concernent les spots de pêche ?"><span class="agent-status status-green"></span><span class="agent-avatar avatar-fish">♧</span><span class="agent-copy"><b>Pêche Specialist</b><small>Analyse des zones · Brochet</small></span><span class="agent-state">DÉMO</span></button>
@@ -161,10 +161,10 @@
   <dialog class="settings-dialog" id="settingsDialog" aria-labelledby="settingsTitle">
     <form class="settings-form" id="settingsForm" novalidate>
       <div class="dialog-head">
-        <div><div class="eyebrow">RÉGLAGES</div><h2 id="settingsTitle">Le cerveau de JARVIS<span class="title-period">.</span></h2></div>
+        <div><div class="eyebrow">RÉGLAGES</div><h2 id="settingsTitle">Le cerveau de <span class="js-name">JARVIS</span><span class="title-period">.</span></h2></div>
         <button class="icon-button" id="closeSettings" type="button" aria-label="Fermer les réglages">×</button>
       </div>
-      <p class="settings-intro">Branchez une IA payante si vous le souhaitez. Sans clé, JARVIS continue de chercher dans vos notes, en local et gratuitement.</p>
+      <p class="settings-intro">Branchez une IA payante si vous le souhaitez. Sans clé, <span class="js-name">JARVIS</span> continue de chercher dans vos notes, en local et gratuitement.</p>
 
       <div class="settings-state" id="settingsState">
         <span class="settings-dot" aria-hidden="true"></span>
@@ -209,7 +209,7 @@
           <div><div class="eyebrow">ACCÈS</div><h3>Qui peut entrer<span class="title-period">.</span></h3></div>
           <span class="access-count" id="accessCount">0 / 0</span>
         </div>
-        <p class="access-intro" id="accessIntro">Ces comptes Google peuvent ouvrir JARVIS. Les autres sont refusés.</p>
+        <p class="access-intro" id="accessIntro">Ces comptes Google peuvent ouvrir <span class="js-name">JARVIS</span>. Les autres sont refusés.</p>
         <ul class="access-list" id="accessList"></ul>
         <div class="access-add" id="accessAdd" hidden>
           <label class="sr-only" for="accessEmail">Adresse e-mail à autoriser</label>
@@ -218,6 +218,15 @@
         </div>
         <p class="access-status" id="accessStatus" role="status" aria-live="polite"></p>
         <p class="access-note" id="accessNote">Vous seul voyez cette liste : elle n’apparaît pas pour les autres comptes.</p>
+      </section>
+
+      <section class="settings-block" id="identityBlock">
+        <h3 class="settings-block-title">Identité</h3>
+        <div class="settings-field">
+          <label for="settingsName">Nom affiché</label>
+          <input id="settingsName" name="jarvisName" type="text" maxlength="24" autocomplete="off" spellcheck="false" placeholder="JARVIS">
+          <small class="settings-help" id="settingsNameHint">Ce nom n’apparaît que pour vous. Laissez vide pour « JARVIS ».</small>
+        </div>
       </section>
 
       <section class="settings-block accent-block">
@@ -231,6 +240,9 @@
           </button>
           <button type="button" class="accent-swatch" data-accent-choice="ambre" role="radio" aria-checked="false">
             <span class="accent-dot accent-dot-ambre" aria-hidden="true"></span>Ambre
+          </button>
+          <button type="button" class="accent-swatch" data-accent-choice="prune" role="radio" aria-checked="false">
+            <span class="accent-dot accent-dot-prune" aria-hidden="true"></span>Prune
           </button>
         </div>
         <p class="accent-note">Ce choix ne change que votre affichage, sur cet appareil.</p>
