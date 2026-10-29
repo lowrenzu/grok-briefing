@@ -68,6 +68,9 @@ rsync -a --delete \
     ./ "$APP_DIR"/
 chown -R "$SERVICE_USER":"$SERVICE_USER" "$APP_DIR"
 chmod 700 "$APP_DIR"
+mkdir -p "$APP_DIR/data"
+chown "$SERVICE_USER":"$SERVICE_USER" "$APP_DIR/data"
+chmod 700 "$APP_DIR/data"   # notes personnelles : un dossier par compte
 ok "$(find "$APP_DIR" -type f | wc -l) fichiers copiés"
 
 # ---------------------------------------------------------------- configuration
@@ -202,6 +205,7 @@ cat <<EOF
   Programme        : $APP_DIR
   Identifiants     : $CONFIG  (droits 600)
   Liste des accès  : $APP_DIR/access.json
+  Notes de chacun  : $APP_DIR/data/users/ (un espace par compte)
   Journaux         : journalctl -u jarvis -f
   Mise à jour      : relancer ce script
   Redémarrage      : systemctl restart jarvis

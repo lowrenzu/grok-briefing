@@ -192,6 +192,21 @@ Depuis cette version, JARVIS peut exiger une **connexion Google** avant d'affich
 
 > ⚠️ Le **code secret n'est affiché qu'une seule fois** à la création. Copiez-le tout de suite. Si vous le perdez, créez-en un nouveau dans l'onglet **Clients** (l'ancien peut être supprimé).
 
+### 1 ter. Où vont les notes de chacun
+
+Un dossier par compte, jamais partagé :
+
+```
+data/users/<empreinte de l'adresse>/notes/     # espace de chaque invité
+<notes_dir configuré>                          # espace du propriétaire
+```
+
+- `JARVIS_DATA_DIR` change la racine (par défaut `data/` à côté du programme) ;
+  sur un hébergeur, pointez-la vers un volume persistant.
+- Le nom du dossier est une empreinte : les adresses e-mail n'apparaissent pas sur le disque.
+- `data/` est ignoré par Git : ces notes ne partent jamais dans le dépôt.
+- Pour sauvegarder l'ensemble : le dossier de notes du propriétaire **et** `data/`.
+
 ### 1 bis. Vérifier que la porte est fermée
 
 Une fois les identifiants en place, JARVIS refuse tout visiteur sans session :

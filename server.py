@@ -24,6 +24,7 @@ import access as access_module
 import ai_providers
 import auth as auth_module
 from build import DEFAULT_NOTES_DIR, ROOT, build_links, normalize, public_graph, read_notes, resolve_notes_dir, write_graph_data
+import workspaces as workspaces_module
 
 CONFIG_PATH = ROOT / "config.json"
 MAX_BODY_BYTES = 24_000
@@ -104,8 +105,33 @@ def sync_access() -> None:
     AUTH.allowed = ACCESS.emails
 NOTES_DIR = resolve_notes_dir(CONFIG.get("notes_dir"))
 
+# Un espace de notes par compte : chacun son JARVIS, aucun mélange.
+_DATA_DIR = Path(os.environ.get("JARVIS_DATA_DIR") or (ROOT / "data"))
+WORKSPACES = workspaces_module.Workspaces(_DATA_DIR, NOTES_DIR, ACCESS.admin)
+
 STATE_LOCK = threading.RLock()
-STATE: dict[str, Any] = {"notes": [], "graph": {"nodes": [], "links": []}}
+# Index par compte : {identité: {"notes": [...], "graph": {...}}}
+STATES: dict[str, dict[str, Any]] = {}
+
+
+def actor_of(handler: BaseHTTPRequestHandler) -> str:
+    """Identité du visiteur : son adresse Google, ou l'identité locale sans porte."""
+    user = current_user(handler) or {}
+    return str(user.get("email") or workspaces_module.LOCAL_ACTOR)
+
+
+def notes_dir_for(actor: str) -> Path:
+    """Dossier de notes de ce compte (créé à la première visite)."""
+    if WORKSPACES.is_owner(actor):
+        return NOTES_DIR  # le propriétaire garde son dossier historique
+    try:
+        return WORKSPACES.notes_dir(actor)
+    except (ValueError, OSError):
+        return NOTES_DIR
+
+
+def empty_state() -> dict[str, Any]:
+    return {"notes": [], "graph": {"nodes": [], "links": []}}
 SESSIONS: dict[str, dict[str, Any]] = {}
 SESSION_LOCK = threading.Lock()
 WEATHER_URL = "https://api.open-meteo.com/v1/forecast"
@@ -225,18 +251,22 @@ def get_weather() -> dict[str, Any]:
 
 
 def apply_notes_dir(settings: ai_providers.AiSettings) -> bool:
-    """Recale le dossier de notes si les Réglages en ont changé un. True si rechargé."""
+    """Recale le dossier de notes du propriétaire si les Réglages ont changé. True si rechargé."""
     global NOTES_DIR
     wanted = resolve_notes_dir(settings.notes_dir or os.environ.get("JARVIS_NOTES_DIR"))
     if wanted == NOTES_DIR:
         return False
     NOTES_DIR = wanted
-    rebuild_index()
+    WORKSPACES.owner_notes = NOTES_DIR
+    rebuild_index(workspaces_module.LOCAL_ACTOR)
     return True
 
 
-def notes_are_demo() -> bool:
-    return NOTES_DIR == DEFAULT_NOTES_DIR.resolve()
+def notes_are_demo(actor: str = workspaces_module.LOCAL_ACTOR) -> bool:
+    """Le dossier « démo » ne concerne que le propriétaire."""
+    if not WORKSPACES.is_owner(actor):
+        return False
+    return notes_dir_for(actor) == DEFAULT_NOTES_DIR.resolve()
 
 
 def client_is_local(handler: BaseHTTPRequestHandler) -> bool:
@@ -245,8 +275,14 @@ def client_is_local(handler: BaseHTTPRequestHandler) -> bool:
 
 
 def settings_open_for(handler: BaseHTTPRequestHandler) -> bool:
-    """Le panneau est-il modifiable depuis cet appareil ? (même règle que settings_writable)"""
+    """Le panneau est-il modifiable pour ce visiteur ? (même règle que settings_writable)
+
+    Avec la connexion Google active, seul le compte administrateur peut modifier les
+    réglages : être sur la même machine ne suffit pas, un invité pourrait y être.
+    """
     if os.environ.get("JARVIS_SETTINGS") == "0":
+        return False
+    if AUTH.ready and not ACCESS.is_admin((current_user(handler) or {}).get("email")):
         return False
     return client_is_local(handler) or os.environ.get("JARVIS_SETTINGS_LAN") == "1"
 
@@ -268,20 +304,25 @@ def settings_writable(handler: BaseHTTPRequestHandler) -> tuple[bool, str]:
     return False, "Par sécurité, les réglages ne s’enregistrent que depuis le PC où tourne JARVIS."
 
 
-def rebuild_index() -> dict[str, Any]:
-    notes = read_notes(NOTES_DIR)
+def rebuild_index(actor: str = workspaces_module.LOCAL_ACTOR) -> dict[str, Any]:
+    """Réindexe les notes de ce compte uniquement."""
+    notes = read_notes(notes_dir_for(actor))
     links = build_links(notes)
     graph = public_graph(notes, links)
     with STATE_LOCK:
-        STATE["notes"] = notes
-        STATE["graph"] = graph
-        write_graph_data(graph)
+        STATES[actor] = {"notes": notes, "graph": graph}
     return graph
 
 
-def current_state() -> tuple[list[dict[str, Any]], dict[str, Any]]:
+def current_state(actor: str = workspaces_module.LOCAL_ACTOR) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    """Notes et graphe de ce compte, réindexés si nécessaire."""
     with STATE_LOCK:
-        return STATE["notes"], STATE["graph"]
+        state = STATES.get(actor)
+    if state is None:
+        rebuild_index(actor)
+        with STATE_LOCK:
+            state = STATES.get(actor) or empty_state()
+    return state["notes"], state["graph"]
 
 
 def words(text: str) -> list[str]:
@@ -422,8 +463,8 @@ def current_user(handler: BaseHTTPRequestHandler) -> dict[str, Any] | None:
     return AUTH.session(auth_token(handler))
 
 
-def chat_handler(question: str, session: dict[str, Any]) -> dict[str, Any]:
-    notes, _graph = current_state()
+def chat_handler(question: str, session: dict[str, Any], actor: str = workspaces_module.LOCAL_ACTOR) -> dict[str, Any]:
+    notes, _graph = current_state(actor)
     question = question.strip()
     if is_small_talk(question):
         answer = small_talk_answer(question)
@@ -477,7 +518,7 @@ def _append_history(session: dict[str, Any], question: str, answer: str, node_id
     session["last_seen"] = time.time()
 
 
-def capture_memory(text: str) -> dict[str, Any]:
+def capture_memory(text: str, actor: str = workspaces_module.LOCAL_ACTOR) -> dict[str, Any]:
     match = REMEMBER_PREFIX.match(text.strip())
     if not match:
         raise ValueError("Commencez par « Souviens-toi que… » ou « remember that… ».")
@@ -491,12 +532,13 @@ def capture_memory(text: str) -> dict[str, Any]:
     title = " ".join(title_words).strip(" .,!?:;—-_")[:72] or "Nouveau souvenir"
     title = title[0].upper() + title[1:] if title else "Nouveau souvenir"
     slug = normalize(title).replace(" ", "-")[:56].strip("-") or "souvenir"
-    captures_dir = (NOTES_DIR / "captures").resolve()
-    if not captures_dir.is_relative_to(NOTES_DIR):
+    notes_root = notes_dir_for(actor)
+    captures_dir = (notes_root / "captures").resolve()
+    if not captures_dir.is_relative_to(notes_root):
         raise ValueError("Le dossier de capture n’est pas autorisé.")
     captures_dir.mkdir(parents=True, exist_ok=True)
 
-    old_notes, _old_graph = current_state()
+    old_notes, _old_graph = current_state(actor)
     related = score_notes(content, old_notes)
     parent_index = related[0][1]["id"] if related else None
     timestamp = datetime.now().astimezone().strftime("%Y%m%d-%H%M%S")
@@ -506,13 +548,13 @@ def capture_memory(text: str) -> dict[str, Any]:
     while destination.exists():
         destination = captures_dir / f"{timestamp}-{slug}-{counter}.md"
         counter += 1
-    if not destination.resolve().is_relative_to(NOTES_DIR):
+    if not destination.resolve().is_relative_to(notes_root):
         raise ValueError("Le chemin de capture n’est pas autorisé.")
     captured_at = datetime.now().astimezone().strftime("%Y-%m-%d %H:%M %Z")
     destination.write_text(f"# {title}\n\n{content}\n\n---\n*Capture JARVIS · {captured_at}*\n", encoding="utf-8")
-    graph = rebuild_index()
-    relative_path = destination.relative_to(NOTES_DIR).as_posix()
-    notes, _ = current_state()
+    graph = rebuild_index(actor)
+    relative_path = destination.relative_to(notes_root).as_posix()
+    notes, _ = current_state(actor)
     note = next((item for item in notes if item["path"] == relative_path), None)
     if note is None:
         raise RuntimeError("La note a été enregistrée mais n’a pas pu être indexée.")
@@ -682,8 +724,9 @@ class JarvisHandler(BaseHTTPRequestHandler):
                 }, HTTPStatus.SERVICE_UNAVAILABLE)
         if path == "/api/status":
 
-            notes, _graph = current_state()
-            is_demo = NOTES_DIR == DEFAULT_NOTES_DIR.resolve()
+            actor = actor_of(self)
+            notes, _graph = current_state(actor)
+            is_demo = notes_are_demo(actor)
             return self.send_json({
                 "noteCount": len(notes),
                 "aiConfigured": AI.configured,
@@ -695,18 +738,22 @@ class JarvisHandler(BaseHTTPRequestHandler):
                 "user": (current_user(self) or {}).get("email"),
             })
         if path == "/api/graph":
-            _notes, graph = current_state()
+            _notes, graph = current_state(actor_of(self))
             return self.send_json(graph)
         if path == "/api/access":
             return self.send_json(self.access_view())
         if path == "/api/settings":
-            notes, _graph = current_state()
+            actor = actor_of(self)
+            notes, _graph = current_state(actor)
+            can_edit = settings_open_for(self)
             payload = AI.public()
             payload.update({
                 "noteCount": len(notes),
-                "isDemo": notes_are_demo(),
-                "notesDirResolved": str(NOTES_DIR),
-                "canEdit": settings_open_for(self),
+                "isDemo": notes_are_demo(actor),
+                # Le chemin du serveur n'est révélé qu'à qui peut modifier les réglages.
+                "notesDirResolved": str(notes_dir_for(actor)) if can_edit else "",
+                "personalSpace": not WORKSPACES.is_owner(actor),
+                "canEdit": can_edit,
             })
             return self.send_json(payload)
 
@@ -715,7 +762,7 @@ class JarvisHandler(BaseHTTPRequestHandler):
             "/index.html": ROOT / "viewer" / "index.html",
             "/styles.css": ROOT / "viewer" / "styles.css",
             "/app.js": ROOT / "viewer" / "app.js",
-            "/graph-data.js": ROOT / "viewer" / "graph-data.js",
+
             "/assets/command-room.jpg": ROOT / "viewer" / "assets" / "command-room.jpg",
             "/assets/jarvis-core-ring.png": ROOT / "viewer" / "assets" / "jarvis-core-ring.png",
             "/assets/jarvis-core-veil.png": ROOT / "viewer" / "assets" / "jarvis-core-veil.png",
@@ -730,6 +777,21 @@ class JarvisHandler(BaseHTTPRequestHandler):
             "/assets/jarvis-core-hud-violet.avif": ROOT / "viewer" / "assets" / f"jarvis-core-hud-violet.avif",
             "/assets/jarvis-core-hud-ambre.avif": ROOT / "viewer" / "assets" / f"jarvis-core-hud-ambre.avif",
         }
+        if path == "/graph-data.js":
+            # Le graphe dépend du compte : jamais le fichier d'un autre.
+            _notes, graph = current_state(actor_of(self))
+            payload = json.dumps(graph, ensure_ascii=False, separators=(",", ":"))
+            payload = payload.replace("<", "\\u003c").replace(">", "\\u003e").replace("&", "\\u0026")
+            body = f"window.JARVIS_GRAPH = {payload};\n".encode("utf-8")
+            self.send_response(HTTPStatus.OK)
+            self.send_header("Content-Type", "text/javascript; charset=utf-8")
+            self.send_header("Content-Length", str(len(body)))
+            self.send_header("Cache-Control", "no-store, private")
+            self.send_header("X-Content-Type-Options", "nosniff")
+            self.end_headers()
+            self.wfile.write(body)
+            return
+
         asset = assets.get(path)
         if asset is None:
             self.send_json({"error": "Ressource introuvable."}, HTTPStatus.NOT_FOUND)
@@ -772,9 +834,10 @@ class JarvisHandler(BaseHTTPRequestHandler):
         is_admin = ACCESS.is_admin(viewer)
         payload = ACCESS.public(viewer)
         if not is_admin:
-            # Un invité ne voit que sa propre fiche : pas d'annuaire des autres comptes.
+            # Un invité ne voit que sa propre fiche : ni annuaire, ni nombre de comptes.
             payload["emails"] = [item for item in payload["emails"] if item["isYou"]]
             payload["admin"] = ""
+            payload["count"] = len(payload["emails"])
         sessions = AUTH.signed_in()
         for item in payload["emails"]:
             item["sessions"] = sessions.get(item["email"], 0)
@@ -839,7 +902,7 @@ class JarvisHandler(BaseHTTPRequestHandler):
             if not reloaded and "notesDir" in body:
                 # Dossier confirmé sans changement : on réindexe quand même, ce qui
                 # garantit que la liste affichée correspond au dossier enregistré.
-                rebuild_index()
+                rebuild_index(actor_of(self))
                 reloaded = True
         except ai_providers.SettingsError as exc:
             self.send_json({"error": str(exc)}, HTTPStatus.BAD_REQUEST)
@@ -847,13 +910,14 @@ class JarvisHandler(BaseHTTPRequestHandler):
         except OSError:
             self.send_json({"error": "Impossible d’écrire config.json (droits du dossier ?)."}, HTTPStatus.INTERNAL_SERVER_ERROR)
             return
-        notes, _graph = current_state()
+        actor = actor_of(self)
+        notes, _graph = current_state(actor)
         payload = AI.public()
         payload.update({
             "ok": True,
             "notesChanged": reloaded,
             "noteCount": len(notes),
-            "isDemo": notes_are_demo(),
+            "isDemo": notes_are_demo(actor),
         })
         print(f"[JARVIS] Réglages enregistrés : {AI.spec['label']} · {AI.model}"
               f"{' · clé enregistrée' if AI.key else ' · sans clé'}")
@@ -941,7 +1005,7 @@ class JarvisHandler(BaseHTTPRequestHandler):
                 self.send_json({"error": "Votre question ne peut pas dépasser 4 000 caractères."}, HTTPStatus.BAD_REQUEST, cookie)
                 return
             try:
-                result = chat_handler(question, session)
+                result = chat_handler(question, session, actor_of(self))
                 self.send_json(result, cookie=cookie)
             except Exception as exc:  # garder les détails côté serveur, jamais dans le navigateur
                 print(f"[JARVIS] Échec de chat: {type(exc).__name__}")
@@ -953,7 +1017,7 @@ class JarvisHandler(BaseHTTPRequestHandler):
             self.send_json({"error": "Écrivez le souvenir à enregistrer."}, HTTPStatus.BAD_REQUEST, cookie)
             return
         try:
-            result = capture_memory(text)
+            result = capture_memory(text, actor_of(self))
             self.send_json(result, cookie=cookie)
         except ValueError as exc:
             self.send_json({"error": str(exc)}, HTTPStatus.BAD_REQUEST, cookie)
@@ -965,7 +1029,8 @@ class JarvisHandler(BaseHTTPRequestHandler):
 
 def main() -> None:
     try:
-        graph = rebuild_index()
+        graph = rebuild_index(workspaces_module.LOCAL_ACTOR)
+        WORKSPACES.set_owner(ACCESS.admin)
     except Exception as exc:
         print(f"[JARVIS] Impossible de créer l’index: {type(exc).__name__}: {exc}")
         raise
@@ -982,6 +1047,7 @@ def main() -> None:
         print("  ⚠ Connexion Google désactivée par JARVIS_AUTH=off (développement seulement).")
     if AUTH.ready:
         print(f"  Accès : connexion Google obligatoire ({ACCESS.count} adresse(s)) · administrateur {ACCESS.admin or '—'}")
+        print(f"  Notes : un espace personnel par compte sous {_DATA_DIR}")
     elif AUTH.enabled:
         print("  Accès : connexion Google configurée mais aucune adresse autorisée — accès refusé.")
     else:

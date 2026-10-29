@@ -1804,7 +1804,12 @@
       if (button) button.disabled = !canEdit;
     }
     if (!canEdit) {
-      setSettingsStatus("Enregistrement réservé au PC où tourne JARVIS. Ouvrez cette page sur ce PC pour modifier les réglages.", "ko");
+      // Sur un espace personnel, ce n'est pas une panne : les réglages sont communs,
+      // et seul l'administrateur les modifie.
+      const message = data.personalSpace
+        ? "Ton espace de notes est personnel. Les réglages du cerveau sont communs à l’installation : seul l’administrateur les modifie."
+        : "Enregistrement réservé au PC où tourne JARVIS. Ouvrez cette page sur ce PC pour modifier les réglages.";
+      setSettingsStatus(message, data.personalSpace ? "" : "ko");
     } else {
       setSettingsStatus("");
     }

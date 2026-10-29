@@ -12,3 +12,4 @@ __pycache__/
 
 # Aperçus de contrôle générés localement
 /.preview-*
+/data/
