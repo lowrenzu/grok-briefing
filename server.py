@@ -636,8 +636,12 @@ class JarvisHandler(BaseHTTPRequestHandler):
         self.send_header("Cache-Control", "no-store")
         self.end_headers()
 
-    def send_login_page(self, message: str, status: HTTPStatus = HTTPStatus.FORBIDDEN) -> None:
-        """Page minimale, sans dépendance aux ressources protégées."""
+    def send_login_page(self, message: str, status: HTTPStatus = HTTPStatus.OK) -> None:
+        """Page minimale, sans dépendance aux ressources protégées.
+
+        Réponse 200 par défaut : c'est une page explicative destinée à être lue,
+        pas un refus. Un vrai refus de connexion passe explicitement 401.
+        """
         body = (
             "<!doctype html><html lang=\"fr\"><head><meta charset=\"utf-8\">"
             "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">"
@@ -717,7 +721,9 @@ class JarvisHandler(BaseHTTPRequestHandler):
         if path.startswith("/auth/") and self.handle_auth(path):
             return
         # Si la connexion Google est configurée, tout le reste exige une session.
-        if AUTH.ready and path not in {"/auth/login", "/api/session"} and current_user(self) is None:
+        # On teste `enabled` et non `ready` : une liste d'adresses vide ou mal
+        # saisie doit FERMER la porte, jamais l'ouvrir.
+        if AUTH.enabled and path not in {"/auth/login", "/api/session"} and current_user(self) is None:
             if path.startswith("/api/"):
                 return self.send_json({"error": "Connexion requise.", "authRequired": True}, HTTPStatus.UNAUTHORIZED)
             return self.redirect("/auth/login")
@@ -1082,7 +1088,7 @@ class JarvisHandler(BaseHTTPRequestHandler):
             self.send_json({"error": str(exc)}, HTTPStatus.BAD_REQUEST)
             return
 
-        if AUTH.ready and current_user(self) is None:
+        if AUTH.enabled and current_user(self) is None:
             self.send_json({"error": "Connexion requise.", "authRequired": True}, HTTPStatus.UNAUTHORIZED)
             return
 

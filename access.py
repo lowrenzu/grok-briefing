@@ -79,8 +79,10 @@ class AccessList:
         if isinstance(emails, str):
             # « a@x.fr, b@y.fr » ou « a@x.fr; b@y.fr »
             emails = [item.strip() for item in emails.replace(";", ",").split(",")]
-        people = [item for item in (str(email).strip() for email in emails) if item]
+        # Nettoyage tolérant : guillemets de copier-coller, espaces, retours à la ligne.
+        people = [item for item in (str(email).strip().strip("'\"") for email in emails) if item]
         if not people:
+            print("[JARVIS] Aucune adresse autorisée fournie : personne ne pourra entrer.")
             return
         with self._lock:
             now = time.time()
@@ -88,6 +90,7 @@ class AccessList:
                 try:
                     email = normalize_email(raw)
                 except AccessError:
+                    print(f"[JARVIS] Adresse ignorée (format invalide) : {raw!r}")
                     continue
                 self._people[email] = {"email": email, "added": now, "last_seen": 0.0, "note": ""}
             wanted = str(admin or "").strip().casefold()

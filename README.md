@@ -4,6 +4,13 @@
 
 Un assistant personnel **local-first** inspiré du *JARVIS Prompt Pack* et de la maquette fournie : hologramme central de JARVIS, cockpit de briefing, profils d'agents et suggestions de démonstration. Il transforme aussi des notes Markdown en galaxie de connaissances, répond à des questions à partir de ces notes, peut parler et retenir de nouveaux souvenirs.
 
+## Si la configuration est incomplète
+
+Dès que les identifiants Google sont présents, JARVIS **ferme** l'accès. Une liste
+d'adresses vide ou mal collée n'ouvre donc jamais le cockpit : elle affiche une
+page qui explique le problème, et le journal du serveur nomme les adresses
+refusées. Les guillemets et les espaces d'un copier-coller sont nettoyés.
+
 ## Personnaliser : nom et teinte
 
 Dans **Réglages → Identité**, chaque compte choisit :
