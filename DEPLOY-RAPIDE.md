@@ -27,12 +27,22 @@ le dépôt est public, et un code secret n'a rien à y faire. Tu les trouves :
 
 ---
 
-## Étape 1 — Créer un compte Render (2 min)
+## Étape 1 — Entrer dans Render (2 min)
 
 1. Va sur **https://render.com**
-2. **Get Started** / **Sign Up**
-3. Choisis **GitHub** (le plus simple : ça relie directement tes dépôts)
-4. Autorise Render à voir tes dépôts
+2. Choisis **Sign in** (se connecter), **pas** « Sign up » (créer un compte)
+3. Choisis **Google**
+
+> **Pourquoi pas GitHub.** Ton adresse e-mail a déjà un compte Render : Render
+> refuse d'en créer un deuxième avec la même adresse, et affiche un message du
+> type « cet e-mail existe déjà ». Il suffit donc de se connecter avec le moyen
+> d'origine — Google.
+>
+> **GitHub n'est pas nécessaire**, et c'est une bonne nouvelle : le dépôt est
+> public, Render sait le lire par son adresse, sans que tu autorises quoi que
+> ce soit. La seule contrepartie : quand je mettrai à jour l'application, il
+> faudra cliquer sur **Manual Deploy** dans Render au lieu que ce soit
+> automatique. Je te le dirai à ce moment-là.
 
 > Pas de carte bancaire pour l'offre gratuite. Render peut la demander pour
 > l'offre payante seulement.
@@ -42,7 +52,7 @@ le dépôt est public, et un code secret n'a rien à y faire. Tu les trouves :
 ## Étape 2 — Créer le service (3 min)
 
 1. En haut à droite : **New +** → **Web Service**
-2. Onglet **Public Git repository** → colle :
+2. Onglet **Public Git Repository** (surtout pas « GitHub ») → colle :
    `https://github.com/lowrenzu/grok-briefing`
 3. **Branch** : choisis **`arena/b5439b0b-grok-briefing`**
    ⚠️ **L'étape la plus importante.** Le dépôt a `film` comme branche par défaut,
