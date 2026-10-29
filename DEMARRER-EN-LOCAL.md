@@ -1,4 +1,4 @@
-# JARVIS sur Windows 11 — en trois gestes
+# JARVIS sur Windows 11 — deux double-clics
 
 Pas de serveur, pas de compte, pas d'adresse à taper. Tes notes restent chez toi.
 
@@ -11,27 +11,26 @@ Clic droit sur `JARVIS-app.zip` → **Extraire tout** → tu obtiens un dossier 
 Mets-le où tu veux (Bureau, Documents). Évite seulement de le déplacer après le
 premier démarrage.
 
-## 2. Double-cliquer sur `LANCER-JARVIS.bat`
+## 2. Double-cliquer sur `INSTALLER-APPLICATION.bat` — une seule fois
 
-C'est tout. Une fenêtre noire s'ouvre, puis **JARVIS s'ouvre dans sa propre
-fenêtre** — sans barre d'adresse, sans onglet, avec son icône dans la barre des
-tâches.
+Une fenêtre bleue s'ouvre, fait trois choses, et se ferme :
 
-**Ne ferme pas la petite fenêtre noire** : c'est JARVIS qui tourne.
-Fermer la **fenêtre JARVIS**, en revanche, arrête tout proprement.
-
-## 3. (Facultatif) Une vraie application autonome
-
-Au premier lancement, JARVIS s'ouvre dans ton navigateur. Pour avoir une
-**fenêtre d'application** au lieu d'une page :
-
-- double-clique sur **`INSTALLER-APPLICATION.bat`** — une seule fois ;
-- cela installe un petit composant gratuit (`pywebview`), qui utilise
+- vérifie que Python fonctionne ;
+- installe un petit composant gratuit (`pywebview`), qui utilise
   **Edge WebView2, déjà présent dans Windows 11** ;
-- ensuite, `LANCER-JARVIS.bat` ouvre JARVIS dans sa propre fenêtre.
+- crée une **icône JARVIS sur ton Bureau** et dans le menu Démarrer.
 
-Rien n'est cassé si tu sautes cette étape : JARVIS fonctionne dans le
-navigateur, simplement avec les onglets autour.
+Cela prend une minute.
+
+## 3. Double-cliquer sur l'icône JARVIS du Bureau
+
+C'est fini. JARVIS s'ouvre dans **sa propre fenêtre** : pas de barre d'adresse,
+pas d'onglets, son icône dans la barre des tâches.
+
+**La fermer arrête JARVIS.** C'est tout.
+
+> Si l'installation échoue, rien n'est cassé : double-clique `LANCER-JARVIS.bat`
+> et JARVIS s'ouvrira dans ton navigateur.
 
 ---
 

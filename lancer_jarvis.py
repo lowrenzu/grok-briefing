@@ -91,6 +91,14 @@ def fenetre_disponible() -> bool:
     return True
 
 
+def chemin_icone() -> str | None:
+    """Icône de la fenêtre et de la barre des tâches, si elle existe."""
+    for candidat in (BASE / "windows" / "jarvis.ico", BASE / "viewer" / "icons" / "icon-512.png"):
+        if candidat.is_file():
+            return str(candidat)
+    return None
+
+
 def ouvrir_fenetre(adresse: str) -> bool:
     """Ouvre JARVIS dans sa propre fenêtre, sans navigateur autour.
 
@@ -104,15 +112,18 @@ def ouvrir_fenetre(adresse: str) -> bool:
         return False
 
     try:
-        webview.create_window(
-            "JARVIS",
-            adresse,
-            width=1360,
-            height=900,
-            min_size=(960, 640),
-            background_color="#070b12",
-            text_select=True,
-        )
+        icone = chemin_icone()
+        options = {
+            "width": 1360,
+            "height": 900,
+            "min_size": (960, 640),
+            "background_color": "#070b12",
+            "text_select": True,
+        }
+        if icone:
+            # `image` sert d'icône de fenêtre sur Windows dès qu'elle est chargée.
+            options["image"] = icone
+        webview.create_window("JARVIS", adresse, **options)
         webview.start()
         return True
     except Exception as exc:  # noqa: BLE001 - on continue dans le navigateur

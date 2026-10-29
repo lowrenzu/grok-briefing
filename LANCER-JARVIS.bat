@@ -7,7 +7,7 @@ echo.
 echo   JARVIS - demarrage...
 echo.
 
-rem Essaie les trois façons d'appeler Python sous Windows.
+rem Essaie les trois facons d'appeler Python sous Windows.
 py -3 lancer_jarvis.py
 if errorlevel 9009 goto essai2
 goto fin
