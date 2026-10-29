@@ -45,6 +45,22 @@ maintenant un message qui le dit, au lieu d'un cockpit vide.
 
 ---
 
+## La voix
+
+`INSTALLER-APPLICATION.bat` installe aussi une **voix naturelle** (le paquet
+`edge-tts`). JARVIS parle alors comme un lecteur d'article, plus comme un robot
+des années 2000.
+
+| Situation | Ce qui se passe |
+|---|---|
+| Voix naturelle installée + internet | JARVIS lit avec une voix française naturelle |
+| Pas d'internet | Il reprend la voix de Windows, sans rien demander |
+| Installation impossible | Il parle quand même, avec la voix de Windows |
+
+**Aucun réglage**, rien à cocher : JARVIS choisit tout seul, et se rabat sur la
+voix de Windows si la voix naturelle n'est pas disponible. Le bouton **VOIX**
+reste le seul interrupteur.
+
 ## Tes notes sont un dossier, sur ton disque
 
 Au premier démarrage, un dossier **`mes-notes`** est créé à côté du programme,

@@ -37,9 +37,9 @@ def verifier(label: str, ok: bool, detail: str = "") -> None:
 
 def copie_neuve() -> Path:
     app = Path(tempfile.mkdtemp(prefix="jarvis-local-app-"))
-    for fichier in ("server.py", "access.py", "auth.py", "prefs.py", "setup.py",
-                    "workspaces.py", "ai_providers.py", "build.py",
-                    "lancer_jarvis.py", "LANCER-JARVIS.bat", "Lancer-JARVIS.command"):
+    for fichier in sorted(ROOT.glob("*.py")):
+        shutil.copy2(fichier, app / fichier.name)
+    for fichier in ("LANCER-JARVIS.bat", "Lancer-JARVIS.command"):
         if (ROOT / fichier).is_file():
             shutil.copy2(ROOT / fichier, app / fichier)
     for dossier in ("viewer", "examples"):

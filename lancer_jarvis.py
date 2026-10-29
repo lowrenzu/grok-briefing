@@ -16,6 +16,7 @@ Vos notes restent dans « mes-notes », sur votre disque. Rien ne part ailleurs.
 """
 from __future__ import annotations
 
+import importlib.util
 import os
 import shutil
 import socket
@@ -78,6 +79,14 @@ def attendre(port: int, delai: float = 30.0) -> bool:
         except (urllib.error.URLError, OSError, ValueError):
             time.sleep(0.25)
     return False
+
+
+def voix_naturelle() -> bool:
+    """Vrai si le paquet de voix neuronale est installé (aucun import tenté)."""
+    try:
+        return importlib.util.find_spec("edge_tts") is not None
+    except (ImportError, ValueError):
+        return False
 
 
 def fenetre_disponible() -> bool:
@@ -166,6 +175,7 @@ def main() -> int:
             return 1
         dire("")
         dire(f"  Adresse : {adresse}")
+        dire("  Voix : " + ("naturelle" if voix_naturelle() else "celle de Windows (voix naturelle non installée)"))
 
         # 1) La vraie fenêtre d'application, si pywebview est disponible.
         if fenetre_disponible() and os.environ.get("JARVIS_NO_BROWSER") != "1":

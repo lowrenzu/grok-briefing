@@ -30,6 +30,7 @@ from build import DEFAULT_NOTES_DIR, ROOT, build_links, normalize, public_graph,
 import workspaces as workspaces_module
 import prefs as prefs_module
 import setup as setup_module
+import voice as voice_module
 
 CONFIG_PATH = ROOT / "config.json"
 MAX_BODY_BYTES = 24_000
@@ -991,6 +992,9 @@ color:#04222b;font-weight:700;text-decoration:none}}
                     "location": {"name": "Sanguinet", "latitude": WEATHER_LATITUDE, "longitude": WEATHER_LONGITUDE},
                     "error": str(exc),
                 }, HTTPStatus.SERVICE_UNAVAILABLE)
+        if path == "/api/voice":
+            # Ce que l'interface doit savoir pour choisir sa voix.
+            return self.send_json(voice_module.etat())
         if path == "/api/status":
 
             actor = actor_of(self)
@@ -1321,12 +1325,38 @@ color:#04222b;font-weight:700;text-decoration:none}}
             raise ValueError("Le corps doit être un objet JSON.")
         return value
 
+    def handle_voice(self, body: dict[str, Any]) -> None:
+        """Rend la phrase en MP3 avec une voix neuronale, ou 503 si indisponible.
+
+        Le 503 n'est pas une erreur : c'est le signal, pour l'interface, de
+        reprendre la voix du navigateur.
+        """
+        texte = body.get("text")
+        if not isinstance(texte, str) or not texte.strip():
+            self.send_json({"error": "Rien à lire."}, HTTPStatus.BAD_REQUEST)
+            return
+        voix_nom = body.get("voice")
+        voix = voice_module.VOIX_DISPONIBLES.get(voix_nom) if isinstance(voix_nom, str) else None
+        audio = voice_module.synthese(texte, voix)
+        if audio is None:
+            self.send_json({"error": "Voix neuronale indisponible.", "fallback": "browser"},
+                           HTTPStatus.SERVICE_UNAVAILABLE)
+            return
+        self.send_response(HTTPStatus.OK)
+        self.send_header("Content-Type", "audio/mpeg")
+        self.send_header("Content-Length", str(len(audio)))
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("X-Content-Type-Options", "nosniff")
+        self.end_headers()
+        self.wfile.write(audio)
+
     def do_POST(self) -> None:  # noqa: N802
         path = urlsplit(self.path).path
         if path == "/setup":
             return self.handle_setup_post()
 
-        if path not in {"/api/chat", "/api/remember", "/api/settings", "/api/settings/test", "/api/access", "/api/prefs"}:
+        if path not in {"/api/chat", "/api/remember", "/api/settings", "/api/settings/test",
+                        "/api/access", "/api/prefs", "/api/voice"}:
             self.send_json({"error": "Route introuvable."}, HTTPStatus.NOT_FOUND)
             return
         try:
@@ -1344,6 +1374,9 @@ color:#04222b;font-weight:700;text-decoration:none}}
 
         if path == "/api/access":
             return self.handle_access(path, body)
+
+        if path == "/api/voice":
+            return self.handle_voice(body)
 
         if path in {"/api/settings", "/api/settings/test"}:
             return self.handle_settings(path, body)

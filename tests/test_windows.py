@@ -96,6 +96,13 @@ def main() -> int:
                      and not (ROOT / "windows" / nom).is_file()]
         verifier("les fichiers annonces existent tous", not manquants, str(manquants))
         verifier("la doc mentionne le raccourci du Bureau", "Bureau" in texte)
+        verifier("la doc explique la voix", "voix naturelle" in texte)
+
+    # L'installation doit proposer la voix naturelle, sans jamais y obliger.
+    installateur = (ROOT / "windows" / "installer.ps1").read_text(encoding="utf-8")
+    verifier("l'installation propose la voix naturelle", "edge-tts" in installateur)
+    verifier("la voix naturelle reste facultative",
+             "pas grave" in installateur and "voix de Windows" in installateur)
 
     reussites = sum(1 for ok, _, _ in RESULTATS if ok)
     print(f"\n{reussites}/{len(RESULTATS)} vérifications passées")

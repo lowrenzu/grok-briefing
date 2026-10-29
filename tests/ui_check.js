@@ -143,16 +143,50 @@ check("teinte fixe mémorisée", window.localStorage.getItem("jarvis-accent") ==
       phrases.join(" ").replace(/\s+/g, " ").trim() === long.replace(/\s+/g, " ").trim());
   }
 
-  // Comportement réel : activer la voix parle avec la meilleure voix disponible.
+  // Hors ligne : le serveur ne peut rien produire, la voix du navigateur prend
+  // le relais avec la meilleure voix locale disponible.
+  essai.window.fetch = () => Promise.reject(new Error("hors ligne"));
   essai.document.querySelector("#voiceToggle").click();
-  const premiere = essai.paroles[0];
-  check("activer la voix déclenche une lecture", !!premiere);
-  if (premiere) {
-    check("la voix choisie est la neuronale", (premiere.voice || {}).name === NEURALE.name);
-    check("débit naturel", premiere.rate === 1, `${premiere.rate}`);
-    check("hauteur naturelle", premiere.pitch === 1, `${premiere.pitch}`);
-    check("langue française", premiere.lang === "fr-FR");
-  }
+  setTimeout(() => {
+    const premiere = essai.paroles[0];
+    check("hors ligne : la voix du navigateur prend le relais", !!premiere);
+    if (premiere) {
+      check("la meilleure voix locale est choisie", (premiere.voice || {}).name === NEURALE.name);
+      check("débit naturel", premiere.rate === 1, `${premiere.rate}`);
+      check("hauteur naturelle", premiere.pitch === 1, `${premiere.pitch}`);
+      check("langue française", premiere.lang === "fr-FR");
+    }
+  }, 20);
+}
+
+// --- voix neuronale : le serveur produit l'audio ---------------------------
+{
+  const demandes = [];
+  const essaiNeural = boot({ tests: true, voix: [] });
+  essaiNeural.window.fetch = (url, options) => {
+    if (!options || !options.method || options.method === "GET") {
+      return Promise.resolve({ ok: true, json: () => Promise.resolve({ neural: true }) });
+    }
+    demandes.push(JSON.parse(options.body).text);
+    return Promise.resolve({ ok: true, blob: () => Promise.resolve({ size: 12 }) });
+  };
+  essaiNeural.window.URL.createObjectURL = () => "blob:phrase";
+  essaiNeural.window.URL.revokeObjectURL = () => {};
+  essaiNeural.window.Audio = function () {
+    this.play = () => {
+      const lecteur = this;
+      setTimeout(() => lecteur.onended && lecteur.onended(), 1);
+      return Promise.resolve();
+    };
+    this.pause = () => {};
+  };
+  essaiNeural.document.querySelector("#voiceToggle").click();
+  setTimeout(() => {
+    check("voix neuronale : le serveur est sollicité", demandes.length > 0, `${demandes.length} phrase(s)`);
+    check("voix neuronale : aucune voix robotique utilisée", essaiNeural.paroles.length === 0,
+      `${essaiNeural.paroles.length} utterance(s)`);
+    check("texte envoyé propre (sans markdown)", demandes.every((t) => !/[*#`]/.test(t)));
+  }, 40);
 }
 
 // --- ouverture directe du fichier (file://) --------------------------------

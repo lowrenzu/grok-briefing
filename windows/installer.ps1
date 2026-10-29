@@ -102,6 +102,24 @@ if ($present) {
     }
 }
 
+# ------------------------------------------------------------- 2b. la voix
+Etape "Voix naturelle (edge-tts)"
+
+& $python -c "import edge_tts" 2>$null | Out-Null
+if ($LASTEXITCODE -eq 0) {
+    Ok "deja installee"
+} else {
+    & $python -m pip install --user --upgrade --quiet edge-tts 2>$null | Out-Null
+    & $python -c "import edge_tts" 2>$null | Out-Null
+    if ($LASTEXITCODE -eq 0) {
+        Ok "installee"
+        Write-Host "    JARVIS parlera avec une voix naturelle (internet requis)."
+    } else {
+        Avertir "pas installee (pas grave)"
+        Write-Host "    JARVIS parlera avec la voix de Windows : moins jolie, mais il parle."
+    }
+}
+
 # ------------------------------------------------------------- 3. raccourcis
 Etape "Raccourcis"
 

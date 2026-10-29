@@ -50,9 +50,10 @@ def verifier(label: str, ok: bool, detail: str = "") -> None:
 
 def copie_neuve() -> Path:
     app = Path(tempfile.mkdtemp(prefix="jarvis-fenetre-app-"))
-    for fichier in ("server.py", "access.py", "auth.py", "prefs.py", "setup.py",
-                    "workspaces.py", "ai_providers.py", "build.py", "lancer_jarvis.py"):
-        shutil.copy2(ROOT / fichier, app / fichier)
+    # Tous les modules Python de la racine : un nouveau module ajouté au serveur
+    # ne doit jamais faire échouer la copie de test.
+    for fichier in sorted(ROOT.glob("*.py")):
+        shutil.copy2(fichier, app / fichier.name)
     for dossier in ("viewer", "examples"):
         (app / dossier).symlink_to(ROOT / dossier, target_is_directory=True)
     return app

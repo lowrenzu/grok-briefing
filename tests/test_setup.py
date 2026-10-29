@@ -53,9 +53,8 @@ def port_libre() -> int:
 
 def copie_du_projet() -> Path:
     app = Path(tempfile.mkdtemp(prefix="jarvis-setup-app-"))
-    for fichier in ("server.py", "access.py", "auth.py", "prefs.py", "setup.py",
-                    "workspaces.py", "ai_providers.py", "build.py"):
-        shutil.copy2(ROOT / fichier, app / fichier)
+    for fichier in sorted(ROOT.glob("*.py")):
+        shutil.copy2(fichier, app / fichier.name)
     for dossier in ("viewer", "examples"):
         (app / dossier).symlink_to(ROOT / dossier, target_is_directory=True)
     return app

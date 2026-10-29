@@ -1355,6 +1355,11 @@
   // Sans événement de frontière (navigateur qui ne les émet pas), le rythme reste
   // assuré par les animations CSS ; sinon la lumière de la bouche suit les syllabes.
   const SPEECH_FALLBACK_DELAY = 320;
+
+  // Voix neuronale : `null` tant qu'on n'a pas demandé au serveur, puis vrai/faux.
+  let voixNeurale = null;
+  let audioCourant = null;
+  let pulsationAudio = null;
   const SPEECH_WATCHDOG_INTERVAL = 900;
 
   function setJarvisSpeaking(isSpeaking) {
@@ -1475,6 +1480,82 @@
     }, 95 + Math.random() * 85);
   }
 
+  function arreterAudio() {
+    window.clearInterval(pulsationAudio);
+    pulsationAudio = null;
+    if (audioCourant) {
+      try { audioCourant.pause(); } catch (_error) { /* déjà arrêté */ }
+      audioCourant = null;
+    }
+  }
+
+  async function voixNeuraleDisponible() {
+    if (voixNeurale !== null) return voixNeurale;
+    try {
+      const response = await fetch("/api/voice", { headers: { Accept: "application/json" } });
+      if (!response.ok) {
+        voixNeurale = false;
+        return false;
+      }
+      const data = await response.json();
+      voixNeurale = Boolean(data && data.neural);
+    } catch (_error) {
+      voixNeurale = false;
+    }
+    return voixNeurale;
+  }
+
+  // Une phrase en MP3 parlé par une voix neuronale ; faux si ça n'a pas pu
+  // aboutir (hors ligne, service indisponible, lecture refusée).
+  function lirePhraseNeurale(texte, token) {
+    return new Promise((resolve) => {
+      let termine = false;
+      const finir = (ok) => {
+        if (termine) return;
+        termine = true;
+        resolve(ok);
+      };
+      fetch("/api/voice", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Accept: "audio/mpeg" },
+        body: JSON.stringify({ text: texte }),
+      })
+        .then((response) => {
+          if (!response.ok) throw new Error("voix indisponible");
+          return response.blob();
+        })
+        .then((blob) => {
+          if (token !== speechToken || !voiceEnabled) return finir(false);
+          const adresse = URL.createObjectURL(blob);
+          const audio = new Audio(adresse);
+          audioCourant = audio;
+          setJarvisSpeaking(true);
+          window.clearInterval(pulsationAudio);
+          pulsationAudio = window.setInterval(() => {
+            if (token === speechToken && voiceEnabled) pulseVoiceGlow();
+          }, 150);
+          const terminer = (ok) => {
+            URL.revokeObjectURL(adresse);
+            window.clearInterval(pulsationAudio);
+            pulsationAudio = null;
+            if (audioCourant === audio) audioCourant = null;
+            finir(ok);
+          };
+          audio.onended = () => terminer(true);
+          audio.onerror = () => terminer(false);
+          try {
+            const lecture = audio.play();
+            if (lecture && typeof lecture.catch === "function") {
+              lecture.catch(() => terminer(false));
+            }
+          } catch (_error) {
+            terminer(false);
+          }
+        })
+        .catch(() => finir(false));
+    });
+  }
+
   function stopSpeechVisuals(token) {
     if (token !== undefined && token !== speechToken) return;
     window.clearInterval(speechWatchdog);
@@ -1484,16 +1565,47 @@
     setJarvisSpeaking(false);
   }
 
+  async function lireNeuralement(phrases, token) {
+    const disponible = await voixNeuraleDisponible();
+    if (token !== speechToken || !voiceEnabled) return;
+    if (!disponible) {
+      speakNavigateur(phrases, token);
+      return;
+    }
+    for (let index = 0; index < phrases.length; index += 1) {
+      if (token !== speechToken || !voiceEnabled) return;
+      const ok = await lirePhraseNeurale(phrases[index], token);
+      if (token !== speechToken || !voiceEnabled) return;
+      if (!ok) {
+        // Panne en cours de route : la voix du navigateur prend le relais pour
+        // la suite, plutôt que de laisser JARVIS muet au milieu d'une phrase.
+        voixNeurale = false;
+        speakNavigateur(phrases.slice(index), token);
+        return;
+      }
+      if (index < phrases.length - 1) {
+        await new Promise((suite) => window.setTimeout(suite, 120));
+      }
+    }
+    if (token === speechToken) stopSpeechVisuals(token);
+  }
+
   function speak(text) {
-    if (!voiceEnabled || !("speechSynthesis" in window)) return;
+    if (!voiceEnabled) return;
     const sentence = speechText(text);
     if (!sentence) return;
-    const synth = window.speechSynthesis;
-    const token = ++speechToken;
-    stopSpeechVisuals();
-    try { synth.cancel(); } catch (_error) { /* navigateur sans annulation : sans effet */ }
     const phrases = decouperEnPhrases(sentence);
     if (!phrases.length) return;
+    const token = ++speechToken;
+    stopSpeechVisuals();
+    arreterAudio();
+    try { window.speechSynthesis.cancel(); } catch (_error) { /* sans effet */ }
+    lireNeuralement(phrases, token);
+  }
+
+  function speakNavigateur(phrases, token) {
+    if (!voiceEnabled || !("speechSynthesis" in window)) return;
+    const synth = window.speechSynthesis;
     withVoices((voices) => {
       if (token !== speechToken || !voiceEnabled) return;
       const voix = pickFrenchVoice(voices);
@@ -1583,6 +1695,7 @@
     } else {
       speechToken += 1;
       try { window.speechSynthesis.cancel(); } catch (_error) { /* sans effet */ }
+      arreterAudio();
       stopSpeechVisuals();
     }
   }
