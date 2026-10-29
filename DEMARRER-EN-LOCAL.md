@@ -29,8 +29,19 @@ pas d'onglets, son icône dans la barre des tâches.
 
 **La fermer arrête JARVIS.** C'est tout.
 
-> Si l'installation échoue, rien n'est cassé : double-clique `LANCER-JARVIS.bat`
-> et JARVIS s'ouvrira dans ton navigateur.
+### Si JARVIS s'ouvre dans le navigateur au lieu de sa fenêtre
+
+C'est le repli prévu : le composant de fenêtre n'est pas encore installé.
+Deux solutions, au choix :
+
+| Solution | Comment |
+|---|---|
+| **Recommandée** | Lance `INSTALLER-APPLICATION.bat` une fois, puis rouvre JARVIS |
+| **Sans rien installer** | Dans Edge, une fois JARVIS ouvert : menu `⋮` → **Applications** → **Installer ce site en tant qu'application** |
+
+Et surtout : **ne double-clique jamais `viewer/index.html`**. Ce fichier seul ne
+peut pas fonctionner — JARVIS a besoin de son serveur. Ouvert ainsi, il affiche
+maintenant un message qui le dit, au lieu d'un cockpit vide.
 
 ---
 

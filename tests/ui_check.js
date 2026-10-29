@@ -97,6 +97,32 @@ prune.click();
 check("teinte fixe après le mode auto", document.documentElement.dataset.accent === "prune");
 check("teinte fixe mémorisée", window.localStorage.getItem("jarvis-accent") === "prune");
 
+// --- ouverture directe du fichier (file://) --------------------------------
+{
+  const domFichier = new JSDOM(html, {
+    url: "file:///C:/JARVIS/viewer/index.html",
+    runScripts: "outside-only",
+    pretendToBeVisual: true,
+  });
+  const page = domFichier.window;
+  page.HTMLCanvasElement.prototype.getContext = () => new Proxy({}, {
+    get: () => () => {},
+    set: () => true,
+  });
+  page.requestAnimationFrame = () => 0;
+  page.matchMedia = () => ({ matches: false, addEventListener() {} });
+  page.speechSynthesis = { getVoices: () => [], speak() {}, cancel() {} };
+  const styleFichier = page.document.createElement("style");
+  styleFichier.textContent = css;
+  page.document.head.appendChild(styleFichier);
+  page.eval(app);
+
+  const texte = page.document.body.textContent || "";
+  check("file:// : un message remplace l'interface", texte.includes("ne s’ouvre pas seul"));
+  check("file:// : le fichier à lancer est indiqué", texte.includes("LANCER-JARVIS.bat"));
+  check("file:// : aucun cockpit inutile", !page.document.querySelector("#questionInput"));
+}
+
 // --- nom -------------------------------------------------------------------
 check("le nom est présent dans la marque", document.querySelector(".brand-word .js-name") !== null);
 check("10 emplacements de nom", document.querySelectorAll(".js-name").length === 10,

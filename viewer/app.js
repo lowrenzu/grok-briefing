@@ -1,6 +1,23 @@
 (() => {
   "use strict";
 
+  // Ouvert comme un simple fichier (file://) plutôt que par JARVIS : sans
+  // serveur, rien ne peut fonctionner. On le dit clairement au lieu d'afficher
+  // un cockpit vide avec des erreurs dans la console.
+  if (window.location.protocol === "file:") {
+    document.body.innerHTML =
+      '<div style="max-width:520px;margin:14vh auto;padding:26px;' +
+      'font:15px/1.6 system-ui,sans-serif;color:#e8f8fc;background:#070b12;' +
+      'border:1px solid rgba(126,232,244,.3);border-radius:14px">' +
+      "<h1 style=\"font-size:19px;margin:0 0 10px\">Ce fichier ne s’ouvre pas seul</h1>" +
+      "<p style=\"color:#a9c3cd;margin:0 0 14px\">Vous avez ouvert <code>index.html</code> " +
+      "directement. JARVIS a besoin de son serveur pour lire vos notes.</p>" +
+      "<p style=\"color:#a9c3cd;margin:0\">Fermez cet onglet et double-cliquez sur " +
+      "<b>LANCER-JARVIS.bat</b> (Windows) ou <b>Lancer-JARVIS.command</b> (Mac), " +
+      "à la racine du dossier JARVIS.</p></div>";
+    return;
+  }
+
   const $ = (selector) => document.querySelector(selector);
   const canvas = $("#galaxy");
   const stage = $("#galaxyStage");

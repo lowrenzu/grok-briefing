@@ -173,8 +173,15 @@ def main() -> int:
             dire("")
             if ouvrir_fenetre(adresse):
                 return 0
+        elif os.environ.get("JARVIS_NO_BROWSER") != "1":
+            # Sans ce message, on croit que JARVIS « n'est qu'une page web ».
+            dire("")
+            dire("  Fenêtre d'application indisponible : ouverture dans le navigateur.")
+            dire("  Pour l'avoir en vraie fenêtre, lancez une fois :")
+            dire("      INSTALLER-APPLICATION.bat")
 
         # 2) Sinon, le navigateur — et JARVIS reste simple à utiliser.
+        dire("")
         dire("  Pour arrêter JARVIS : fermez cette fenêtre, ou Ctrl+C.")
         dire("")
         if os.environ.get("JARVIS_NO_BROWSER") != "1":

@@ -69,22 +69,39 @@ def environnement(dossier_faux: Path | None, trace: Path, sans_navigateur: bool 
     return env
 
 
+def demarrer_lecture(processus: subprocess.Popen) -> list[str]:
+    """Consomme la sortie en tâche de fond.
+
+    Nécessaire : `select` ne voit pas les lignes déjà présentes dans le tampon
+    de Python, et une lecture bloquante figerait le test.
+    """
+    import threading
+
+    lignes: list[str] = []
+
+    def boucle() -> None:
+        flux = processus.stdout
+        if flux is None:
+            return
+        for ligne in flux:
+            lignes.append(ligne.rstrip())
+
+    threading.Thread(target=boucle, daemon=True).start()
+    return lignes
+
+
 def lancer(app: Path, env: dict[str, str], delai: float = 40.0) -> tuple[int, list[str]]:
     processus = subprocess.Popen(
         [sys.executable, "-u", "lancer_jarvis.py"], cwd=str(app), env=env,
         stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
     )
-    lignes: list[str] = []
+    lignes = demarrer_lecture(processus)
     limite = time.time() + delai
     try:
         while time.time() < limite:
-            ligne = processus.stdout.readline()
-            if not ligne:
-                break
-            lignes.append(ligne.rstrip())
             if processus.poll() is not None:
-                lignes.extend((processus.stdout.read() or "").splitlines())
                 break
+            time.sleep(0.1)
     finally:
         if processus.poll() is None:
             processus.terminate()
@@ -119,29 +136,37 @@ def scenario_repli() -> None:
     """Sans pywebview : le serveur démarre et reste debout, prêt à s'ouvrir."""
     app = copie_neuve()
     trace = Path(tempfile.mkdtemp(prefix="trace-vide-")) / "inutile.json"
-    env = environnement(None, trace)
-    # PYTHONPATH vide : le vrai `webview` n'existe pas dans cet environnement.
+    # Navigateur autorisé (sinon le message de repli n'est pas affiché), mais
+    # $BROWSER neutralisé : aucune fenêtre ne doit s'ouvrir pendant le test.
+    env = environnement(None, trace, sans_navigateur=False)
     env.pop("PYTHONPATH", None)
+    env["BROWSER"] = "/bin/true"
 
     processus = subprocess.Popen(
         [sys.executable, "-u", "lancer_jarvis.py"], cwd=str(app), env=env,
         stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
     )
+    lignes = demarrer_lecture(processus)
     port = None
-    lignes: list[str] = []
     try:
         limite = time.time() + 40
         while time.time() < limite:
-            ligne = processus.stdout.readline()
-            if not ligne:
+            for ligne in list(lignes):
+                trouve = re.search(r"localhost:(\d+)", ligne)
+                if trouve:
+                    port = int(trouve.group(1))
+                    break
+            if port:
                 break
-            lignes.append(ligne.rstrip())
-            trouve = re.search(r"localhost:(\d+)", ligne)
-            if trouve:
-                port = int(trouve.group(1))
-                break
+            time.sleep(0.15)
         verifier("sans pywebview, le serveur démarre", port is not None, str(port))
         verifier("aucune fenêtre n'est demandée", not trace.is_file())
+        time.sleep(1.0)  # laisse le message de repli arriver
+        texte = "\n".join(lignes)
+        verifier("le repli est annoncé clairement",
+                 "indisponible" in texte and "navigateur" in texte)
+        verifier("l'installation de la fenêtre est indiquée",
+                 "INSTALLER-APPLICATION.bat" in texte)
     finally:
         processus.terminate()
         try:
