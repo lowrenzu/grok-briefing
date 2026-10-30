@@ -38,7 +38,10 @@ def verifier(label: str, ok: bool, detail: str = "") -> None:
 
 
 def copie_neuve() -> Path:
-    app = Path(tempfile.mkdtemp(prefix="jarvis-branchement-"))
+    """Comme sur un vrai PC : JARVIS vit DANS un dossier de travail (C:\IA)."""
+    atelier = Path(tempfile.mkdtemp(prefix="jarvis-atelier-"))
+    app = atelier / "JARVIS"
+    app.mkdir()
     for fichier in sorted(ROOT.glob("*.py")):
         shutil.copy2(fichier, app / fichier.name)
     for dossier in ("viewer", "examples"):
@@ -156,6 +159,23 @@ apres = {f.name: f.read_bytes() for f in (app / "mes-notes").iterdir() if f.is_f
 verifier("un second lancement n'ajoute rien", noms_notes(app) == notes_avant,
          f"{len(notes_avant)} → {len(noms_notes(app))}")
 verifier("un second lancement ne réécrit rien", avant == apres)
+
+# --- 3b. dossier de travail C:\IA : les documents à côté sont trouvés ------
+app_ia = copie_neuve()
+maison_ia = Path(tempfile.mkdtemp(prefix="jarvis-maison-ia-"))
+atelier = app_ia.parent
+(atelier / "Notes perso").mkdir()
+(atelier / "Notes perso" / "Anniversaire d'Anna.md").write_text(
+    "Anniversaire le 14 mars, reserver un restaurant.\n", encoding="utf8")
+(atelier / "Factures.txt").write_text("Facture electricite payee.\n", encoding="utf8")
+
+lancer_preparation(app_ia, maison_ia)
+notes_ia = noms_notes(app_ia)
+verifier("document à côté de JARVIS trouvé", "Factures.txt" in notes_ia, str(sorted(notes_ia)))
+verifier("sous-dossier du dossier de travail exploré",
+         "Anniversaire d'Anna.md" in notes_ia)
+verifier("la documentation du programme n'est pas prise pour des notes",
+         "README.md" not in notes_ia and "DEPLOY.md" not in notes_ia)
 
 # --- 4. sans document : exemples, mais signalés ----------------------------
 app_vide = copie_neuve()

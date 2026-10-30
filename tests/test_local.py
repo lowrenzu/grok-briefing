@@ -36,7 +36,10 @@ def verifier(label: str, ok: bool, detail: str = "") -> None:
 
 
 def copie_neuve() -> Path:
-    app = Path(tempfile.mkdtemp(prefix="jarvis-local-app-"))
+    """JARVIS vit DANS un dossier de travail isolé (comme C:\IA\JARVIS)."""
+    atelier = Path(tempfile.mkdtemp(prefix="jarvis-local-atelier-"))
+    app = atelier / "JARVIS"
+    app.mkdir()
     for fichier in sorted(ROOT.glob("*.py")):
         shutil.copy2(fichier, app / fichier.name)
     for fichier in ("LANCER-JARVIS.bat", "Lancer-JARVIS.command"):

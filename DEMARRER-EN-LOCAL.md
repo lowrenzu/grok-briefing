@@ -71,6 +71,7 @@ Au premier lancement, JARVIS **cherche tes documents tout seul** dans :
 | `Bureau` (ou `Desktop`) | oui |
 | `OneDrive\Documents` | oui |
 | Sous-dossiers `Notes`, `Mes notes` | oui |
+| **Le dossier qui contient `JARVIS`** (ex. `C:\IA`) | oui, plus ses sous-dossiers |
 
 Il reprend les fichiers **`.md`**, **`.txt`** et **`.docx`** (Word), les **copie**
 dans `mes-notes`, et **écarte les notes d'exemple**. Tes fichiers d'origine ne

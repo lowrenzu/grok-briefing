@@ -76,6 +76,26 @@ def emplacements_documents() -> list[Path]:
     for parent in list(candidats):
         for nom in ("Notes", "notes", "JARVIS", "Mes notes"):
             candidats.append(parent / nom)
+
+    # Le dossier qui CONTIENT celui de JARVIS, et celui de JARVIS lui-même :
+    # quelqu'un qui range tout dans C:\IA doit être pris en compte sans rien
+    # configurer. Les sous-dossiers y sont explorés un niveau plus bas.
+    # On ne scanne JAMAIS le dossier du programme lui-même : ses README et sa
+    # documentation ne sont pas des notes.
+    racine = BASE.parent
+    if racine != BASE:
+        candidats.append(racine)
+        try:
+            for enfant in sorted(racine.iterdir()):
+                if not enfant.is_dir():
+                    continue
+                if enfant.resolve() == BASE:
+                    continue
+                if enfant.name.lower() in DOSSIERS_TECHNIQUES:
+                    continue
+                candidats.append(enfant)
+        except OSError:
+            pass
     vus: set[Path] = set()
     uniques = []
     for chemin in candidats:
@@ -88,6 +108,13 @@ def emplacements_documents() -> list[Path]:
         vus.add(resolu)
         uniques.append(resolu)
     return uniques
+
+
+# Dossiers du programme : jamais des notes, même s'ils contiennent des .md.
+DOSSIERS_TECHNIQUES = {
+    "viewer", "examples", "mes-notes", "windows", "tests", "data", "tools",
+    "node_modules", "__pycache__", ".git", ".venv", "venv", "assets", "icons",
+}
 
 
 def documents_trouves() -> list[Path]:
@@ -105,6 +132,9 @@ def documents_trouves() -> list[Path]:
                 return trouves
             try:
                 if not entree.is_file():
+                    continue
+                if any(part.lower() in DOSSIERS_TECHNIQUES
+                       for part in entree.relative_to(dossier).parts):
                     continue
                 if entree.suffix.lower() not in EXTENSIONS:
                     continue
