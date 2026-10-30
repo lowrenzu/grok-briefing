@@ -62,6 +62,15 @@ def _clean_excerpt(text: str, limit: int = 700) -> str:
 # convertir ni installer.
 EXTENSIONS_LUES = (".md", ".txt", ".docx")
 
+# Dossiers qui ne contiennent jamais des notes de quelqu'un : quand on pointe
+# JARVIS sur un gros dossier (C:\IA), il ne doit pas avaler la documentation
+# des programmes installés à côté.
+DOSSIERS_IGNORES = {
+    "node_modules", "__pycache__", "venv", ".venv", "site-packages", "dist",
+    "build", "target", ".git", "windows", "viewer", "examples", "mes-notes",
+    "tests", "data", "tools",
+}
+
 DOCX_BALISE = re.compile(r"<[^>]+>")
 DOCX_PARAGRAPHE = re.compile(r"</w:p>")
 
@@ -108,7 +117,9 @@ def read_notes(notes_dir: str | Path) -> list[dict[str, Any]]:
         (path for path in base.rglob("*")
          if path.is_file()
          and path.suffix.lower() in EXTENSIONS_LUES
-         and not any(part.startswith(".") for part in path.relative_to(base).parts)),
+         and not any(part.startswith(".") for part in path.relative_to(base).parts)
+         and not any(part.lower() in DOSSIERS_IGNORES
+                     for part in path.relative_to(base).parts[:-1])),
         # Les captures JARVIS sont rangées à la fin : l'ajout d'un souvenir garde les anciens IDs stables.
         key=lambda path: (
             path.relative_to(base).parts[0].casefold() == "captures",
