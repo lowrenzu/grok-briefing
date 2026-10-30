@@ -64,6 +64,11 @@ def main() -> int:
     app = copie_neuve()
     env = {cle: valeur for cle, valeur in os.environ.items() if not cle.startswith("JARVIS_")}
     env["JARVIS_NO_BROWSER"] = "1"  # pas de navigateur dans un environnement de test
+    # Maison vide et déterministe : sur une machine réelle, JARVIS brancherait les
+    # vrais documents de l'utilisateur, et ce test ne pourrait plus rien prévoir.
+    maison_vide = tempfile.mkdtemp(prefix="jarvis-maison-test-")
+    env["HOME"] = maison_vide
+    env["USERPROFILE"] = maison_vide
 
     processus = subprocess.Popen(
         [sys.executable, "-u", "lancer_jarvis.py"],
@@ -101,7 +106,10 @@ def main() -> int:
         verifier("aucune connexion demandée", etat.get("authRequired") is False)
         verifier("les notes viennent de mes-notes", etat.get("noteCount") == 25,
                  str(etat.get("noteCount")))
-        verifier("ce ne sont plus des notes de démonstration", etat.get("isDemo") is False)
+        # Sans aucun document réel à brancher, les exemples restent — mais JARVIS
+        # doit les ANNONCER comme fictifs, jamais les faire passer pour des notes.
+        verifier("les exemples sont annoncés comme tels", etat.get("isDemo") is True,
+                 str(etat.get("noteCount")))
 
         try:
             with ouvreur.open(f"http://127.0.0.1:{port}/setup", timeout=10) as reponse:

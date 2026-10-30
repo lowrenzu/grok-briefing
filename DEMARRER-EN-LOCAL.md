@@ -61,6 +61,28 @@ des années 2000.
 voix de Windows si la voix naturelle n'est pas disponible. Le bouton **VOIX**
 reste le seul interrupteur.
 
+## JARVIS se branche sur tes vrais documents
+
+Au premier lancement, JARVIS **cherche tes documents tout seul** dans :
+
+| Dossier | Cherché |
+|---|---|
+| `Documents` | oui |
+| `Bureau` (ou `Desktop`) | oui |
+| `OneDrive\Documents` | oui |
+| Sous-dossiers `Notes`, `Mes notes` | oui |
+
+Il reprend les fichiers **`.md`**, **`.txt`** et **`.docx`** (Word), les **copie**
+dans `mes-notes`, et **écarte les notes d'exemple**. Tes fichiers d'origine ne
+sont **jamais modifiés ni déplacés**.
+
+- **Rien trouvé ?** Les 25 exemples restent, mais JARVIS l'annonce clairement :
+  *« Exemples fictifs — pas encore vos notes »*. Aucune confusion possible.
+- **Tu veux tes propres fichiers ?** Dépose-les simplement dans `mes-notes`,
+  puis relance JARVIS. C'est le seul geste.
+- **Un PDF ?** Pas encore lu. Convertis-le en `.docx` ou en `.txt` — ou demande-moi
+  de l'ajouter.
+
 ## Tes notes sont un dossier, sur ton disque
 
 Au premier démarrage, un dossier **`mes-notes`** est créé à côté du programme,

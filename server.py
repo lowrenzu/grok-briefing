@@ -301,10 +301,19 @@ def apply_notes_dir(settings: ai_providers.AiSettings) -> bool:
 
 
 def notes_are_demo(actor: str = workspaces_module.LOCAL_ACTOR) -> bool:
-    """Le dossier « démo » ne concerne que le propriétaire."""
+    """Vrai si l'utilisateur ne voit que des exemples fictifs.
+
+    Deux cas : les notes de démonstration livrées, ou un dossier « mes-notes »
+    qui n'a jamais été branché sur de vrais documents — le lanceur y dépose
+    alors un marqueur, pour que l'interface ne fasse pas passer des exemples
+    pour les notes de quelqu'un.
+    """
     if not WORKSPACES.is_owner(actor):
         return False
-    return notes_dir_for(actor) == DEFAULT_NOTES_DIR.resolve()
+    dossier = notes_dir_for(actor)
+    if dossier == DEFAULT_NOTES_DIR.resolve():
+        return True
+    return (dossier / ".jarvis-exemples").is_file()
 
 
 def client_is_local(handler: BaseHTTPRequestHandler) -> bool:

@@ -57,14 +57,58 @@ def _clean_excerpt(text: str, limit: int = 700) -> str:
     return text[:limit].rstrip() + ("…" if len(text) > limit else "")
 
 
+# Fichiers que JARVIS sait lire. Le Markdown d'abord, puis le texte brut, puis
+# les documents Word : de quoi brancher les vrais fichiers d'un PC sans rien
+# convertir ni installer.
+EXTENSIONS_LUES = (".md", ".txt", ".docx")
+
+DOCX_BALISE = re.compile(r"<[^>]+>")
+DOCX_PARAGRAPHE = re.compile(r"</w:p>")
+
+
+def lire_docx(path: Path) -> str:
+    """Extrait le texte d'un document Word, sans rien installer.
+
+    Un .docx est une archive : le texte vit dans `word/document.xml`. On retire
+    les balises et on garde un paragraphe par ligne.
+    """
+    import zipfile
+
+    try:
+        with zipfile.ZipFile(path) as archive:
+            with archive.open("word/document.xml") as flux:
+                xml = flux.read().decode("utf-8", errors="replace")
+    except (OSError, KeyError, zipfile.BadZipFile, ValueError):
+        return ""
+    xml = DOCX_PARAGRAPHE.sub("\n", xml)
+    texte = DOCX_BALISE.sub("", xml)
+    texte = texte.replace("&amp;", "&").replace("&lt;", "<").replace("&gt;", ">")
+    texte = texte.replace("&quot;", '"').replace("&apos;", "'")
+    lignes = [ligne.strip() for ligne in texte.splitlines()]
+    return "\n".join(ligne for ligne in lignes if ligne).strip()
+
+
+def lire_fichier(path: Path) -> str:
+    """Texte d'une note, quel que soit son format lisible."""
+    if path.suffix.lower() == ".docx":
+        return lire_docx(path)
+    try:
+        return path.read_text(encoding="utf-8", errors="replace").strip()
+    except (OSError, ValueError):
+        return ""
+
+
 def read_notes(notes_dir: str | Path) -> list[dict[str, Any]]:
-    """Lit les fichiers .md et conserve leur texte complet côté serveur."""
+    """Lit les fichiers lisibles (.md, .txt, .docx), texte complet gardé côté serveur."""
     base = Path(notes_dir).expanduser().resolve()
     if not base.is_dir():
         return []
 
     paths = sorted(
-        (path for path in base.rglob("*.md") if not any(part.startswith(".") for part in path.relative_to(base).parts)),
+        (path for path in base.rglob("*")
+         if path.is_file()
+         and path.suffix.lower() in EXTENSIONS_LUES
+         and not any(part.startswith(".") for part in path.relative_to(base).parts)),
         # Les captures JARVIS sont rangées à la fin : l'ajout d'un souvenir garde les anciens IDs stables.
         key=lambda path: (
             path.relative_to(base).parts[0].casefold() == "captures",
@@ -74,7 +118,7 @@ def read_notes(notes_dir: str | Path) -> list[dict[str, Any]]:
     notes: list[dict[str, Any]] = []
     for path in paths:
         try:
-            content = path.read_text(encoding="utf-8", errors="replace").strip()
+            content = lire_fichier(path)
             relative_path = path.relative_to(base).as_posix()
         except (OSError, ValueError):
             continue

@@ -50,11 +50,113 @@ def port_libre(depart: int) -> int:
     raise RuntimeError("Aucun port libre entre 4700 et 4719.")
 
 
-def preparer_notes() -> None:
-    """Première fois : un vrai dossier de notes, copié depuis les exemples."""
-    if NOTES.is_dir():
-        return
-    NOTES.mkdir(parents=True, exist_ok=True)
+# Marqueur déposé quand le dossier ne contient QUE des exemples : l'interface
+# peut alors prévenir honnêtement « exemples fictifs » au lieu de faire croire
+# que ce sont vos notes.
+MARQUEUR_DEMO = ".jarvis-exemples"
+MARQUEUR_BRANCHE = ".jarvis-branche"
+EXTENSIONS = (".md", ".txt", ".docx")
+TAILLE_MAXIMALE = 2 * 1024 * 1024
+FICHIERS_MAXIMUM = 120
+
+
+def emplacements_documents() -> list[Path]:
+    """Les dossiers où un particulier range réellement ses documents.
+
+    Noms français ET anglais : « Bureau » comme « Desktop », car Windows
+    localisé traduit le nom affiché, pas toujours le chemin.
+    """
+    maison = Path.home()
+    candidats = []
+    for nom in ("Documents", "Mes documents", "OneDrive/Documents", "OneDrive/Bureau"):
+        candidats.append(maison / nom)
+    for nom in ("Desktop", "Bureau"):
+        candidats.append(maison / nom)
+    # Sous-dossiers fréquents, pour trouver quelque chose même bien rangé.
+    for parent in list(candidats):
+        for nom in ("Notes", "notes", "JARVIS", "Mes notes"):
+            candidats.append(parent / nom)
+    vus: set[Path] = set()
+    uniques = []
+    for chemin in candidats:
+        try:
+            resolu = chemin.expanduser()
+        except (OSError, RuntimeError):
+            continue
+        if resolu in vus:
+            continue
+        vus.add(resolu)
+        uniques.append(resolu)
+    return uniques
+
+
+def documents_trouves() -> list[Path]:
+    """Fichiers lisibles trouvés sur cet ordinateur, hors dossiers techniques."""
+    trouves: list[Path] = []
+    for dossier in emplacements_documents():
+        if not dossier.is_dir():
+            continue
+        try:
+            entrees = sorted(dossier.iterdir())
+        except OSError:
+            continue
+        for entree in entrees:
+            if len(trouves) >= FICHIERS_MAXIMUM:
+                return trouves
+            try:
+                if not entree.is_file():
+                    continue
+                if entree.suffix.lower() not in EXTENSIONS:
+                    continue
+                if entree.name.startswith((".", "~$")):
+                    continue
+                if entree.stat().st_size > TAILLE_MAXIMALE or entree.stat().st_size == 0:
+                    continue
+            except OSError:
+                continue
+            trouves.append(entree)
+    return trouves
+
+
+def empreinte(chemin: Path) -> str:
+    import hashlib
+
+    try:
+        return hashlib.sha256(chemin.read_bytes()).hexdigest()
+    except OSError:
+        return ""
+
+
+def fichiers_de(chemin: Path) -> list[Path]:
+    """Les fichiers de notes réellement présents dans un dossier."""
+    if not chemin.is_dir():
+        return []
+    resultat = []
+    for fichier in sorted(chemin.rglob("*")):
+        try:
+            if fichier.is_file() and fichier.suffix.lower() in EXTENSIONS:
+                resultat.append(fichier)
+        except OSError:
+            continue
+    return resultat
+
+
+def seulement_des_exemples() -> bool:
+    """Vrai si le dossier ne contient rien d'autre que les exemples livrés."""
+    if not EXEMPLES.is_dir():
+        return False
+    ici = fichiers_de(NOTES)
+    if not ici:
+        return False
+    attendus = {f.name: empreinte(f) for f in EXEMPLES.glob("*.md")}
+    for fichier in ici:
+        reference = attendus.get(fichier.name)
+        if reference is None or empreinte(fichier) != reference:
+            return False
+    return True
+
+
+def copier_exemples() -> int:
     copies = 0
     if EXEMPLES.is_dir():
         for fichier in sorted(EXEMPLES.glob("*.md")):
@@ -63,9 +165,100 @@ def preparer_notes() -> None:
                 copies += 1
             except OSError:
                 pass
-    dire(f"  Dossier de notes créé : {NOTES}")
+    return copies
+
+
+def brancher_documents() -> int:
+    """Copie les vrais documents trouvés dans « mes-notes ». Zéro si aucun."""
+    trouves = documents_trouves()
+    if not trouves:
+        return 0
+
+    # On retire les exemples : ils ne doivent pas se mêler aux vraies notes.
+    if seulement_des_exemples():
+        for fichier in fichiers_de(NOTES):
+            try:
+                fichier.unlink()
+            except OSError:
+                pass
+
+    copies = 0
+    for source in trouves:
+        cible = NOTES / source.name
+        suffixe = 2
+        while cible.exists():
+            cible = NOTES / f"{source.stem} ({suffixe}){source.suffix}"
+            suffixe += 1
+        try:
+            shutil.copy2(source, cible)
+            copies += 1
+        except OSError:
+            continue
     if copies:
-        dire(f"  {copies} notes d’exemple copiées (vous pouvez les modifier ou les supprimer).")
+        try:
+            (NOTES / MARQUEUR_DEMO).unlink()
+        except OSError:
+            pass
+        try:
+            (NOTES / MARQUEUR_BRANCHE).write_text(
+                str(trouves[0].parent) + "\n", encoding="utf-8")
+        except OSError:
+            pass
+    return copies
+
+
+def preparer_notes() -> None:
+    """Branche JARVIS sur les vrais documents de l'ordinateur.
+
+    Trois cas, dans cet ordre :
+      1. le dossier contient déjà de vraies notes → on n'y touche pas ;
+      2. il ne contient que des exemples (ou n'existe pas) → on cherche les
+         vrais documents de l'utilisateur et on les copie ;
+      3. rien de trouvé → les exemples restent, mais signalés comme tels.
+    """
+    NOTES.mkdir(parents=True, exist_ok=True)
+
+    if notes_reelles():
+        dire(f"  Vos notes : {NOTES}")
+        dire(f"  {len(fichiers_de(NOTES))} fichier(s) déjà en place, laissés tels quels.")
+        return
+
+    copies = brancher_documents()
+    if copies:
+        origine = ""
+        marqueur = NOTES / MARQUEUR_BRANCHE
+        try:
+            origine = marqueur.read_text(encoding="utf-8").strip()
+        except OSError:
+            pass
+        dire(f"  Vos documents branchés : {copies} fichier(s) copié(s) vers {NOTES}")
+        if origine:
+            dire(f"  Depuis : {origine}")
+        dire("  Vos fichiers d'origine n'ont PAS été modifiés.")
+        return
+
+    # Rien trouvé : on garde les exemples, mais on le dit clairement.
+    if not fichiers_de(NOTES):
+        copies = copier_exemples()
+    else:
+        copies = len(fichiers_de(NOTES))
+    try:
+        (NOTES / MARQUEUR_DEMO).write_text("exemples\n", encoding="utf-8")
+    except OSError:
+        pass
+    dire(f"  Dossier de notes : {NOTES}")
+    if copies:
+        dire(f"  {copies} notes d’EXEMPLE (fictives) : aucun document réel trouvé")
+        dire("  dans Documents, Bureau ou OneDrive. Déposez vos fichiers dans")
+        dire(f"  {NOTES} puis relancez JARVIS.")
+
+
+def notes_reelles() -> bool:
+    """Vrai si le dossier contient autre chose que les exemples livrés."""
+    ici = fichiers_de(NOTES)
+    if not ici:
+        return False
+    return not seulement_des_exemples()
 
 
 def attendre(port: int, delai: float = 30.0) -> bool:

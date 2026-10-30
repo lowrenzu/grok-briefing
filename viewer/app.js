@@ -1349,8 +1349,11 @@
       $("#buildLabel").textContent = aiReady ? "IA PRIVÉE PAR LE SERVEUR" : "LOCAL FIRST";
       afficherVersion(status.version, status.neuralVoice);
       if (status.isDemo) {
-        graphStatus.textContent = "Exemples fictifs — remplacez-les par vos notes";
-        $("#graphSubheading").textContent = `${graph.nodes.length} notes de démonstration indexées. Vous pourrez les remplacer par vos propres fichiers Markdown.`;
+        graphStatus.textContent = "Exemples fictifs — pas encore vos notes";
+        $("#graphSubheading").textContent =
+          `${graph.nodes.length} notes d’exemple : aucun document réel trouvé sur cet ordinateur. `
+          + "Déposez vos fichiers .md, .txt ou .docx dans le dossier « mes-notes », "
+          + "à côté de JARVIS, puis relancez-le.";
       } else if (graph.nodes.length) {
         graphStatus.textContent = "Index local prêt · notes privées";
         $("#graphSubheading").textContent = `${graph.nodes.length} notes indexées. Explorez les liens entre vos idées.`;
