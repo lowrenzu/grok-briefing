@@ -38,10 +38,10 @@ def verifier(label: str, ok: bool, detail: str = "") -> None:
 
 
 def copie_neuve() -> Path:
-    """Comme sur un vrai PC : JARVIS vit DANS un dossier de travail (C:\IA)."""
+    """Comme sur le vrai PC : C:\IA\projets\Jarvis, deux niveaux sous C:\IA."""
     atelier = Path(tempfile.mkdtemp(prefix="jarvis-atelier-"))
-    app = atelier / "JARVIS"
-    app.mkdir()
+    app = atelier / "projets" / "Jarvis"
+    app.mkdir(parents=True)
     for fichier in sorted(ROOT.glob("*.py")):
         shutil.copy2(fichier, app / fichier.name)
     for dossier in ("viewer", "examples"):
@@ -163,7 +163,7 @@ verifier("un second lancement ne réécrit rien", avant == apres)
 # --- 3b. dossier de travail C:\IA : les documents à côté sont trouvés ------
 app_ia = copie_neuve()
 maison_ia = Path(tempfile.mkdtemp(prefix="jarvis-maison-ia-"))
-atelier = app_ia.parent
+atelier = app_ia.parent.parent
 (atelier / "Notes perso").mkdir()
 (atelier / "Notes perso" / "Anniversaire d'Anna.md").write_text(
     "Anniversaire le 14 mars, reserver un restaurant.\n", encoding="utf8")
@@ -171,6 +171,8 @@ atelier = app_ia.parent
 
 lancer_preparation(app_ia, maison_ia)
 notes_ia = noms_notes(app_ia)
+verifier("document deux niveaux au-dessus trouvé",
+         "Factures.txt" in notes_ia, str(sorted(notes_ia)))
 verifier("document à côté de JARVIS trouvé", "Factures.txt" in notes_ia, str(sorted(notes_ia)))
 verifier("sous-dossier du dossier de travail exploré",
          "Anniversaire d'Anna.md" in notes_ia)

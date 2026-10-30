@@ -80,11 +80,17 @@ def emplacements_documents() -> list[Path]:
     # Le dossier qui CONTIENT celui de JARVIS, et celui de JARVIS lui-même :
     # quelqu'un qui range tout dans C:\IA doit être pris en compte sans rien
     # configurer. Les sous-dossiers y sont explorés un niveau plus bas.
-    # On ne scanne JAMAIS le dossier du programme lui-même : ses README et sa
-    # documentation ne sont pas des notes.
+    # Les dossiers qui CONTIENNENT JARVIS, sur deux niveaux : quelqu'un qui range
+    # tout dans C:\IA et pose JARVIS dans C:\IA\projets\Jarvis doit être trouvé
+    # sans rien configurer. On ne monte jamais au-dessus de la racine du disque
+    # ni du dossier personnel, pour ne pas fouiller tout l'ordinateur.
+    interdits = {Path(Path.home().anchor or "/"), Path.home()}
     racine = BASE.parent
-    if racine != BASE:
-        candidats.append(racine)
+    for _niveau in range(2):
+        if racine in interdits or racine == BASE or not racine.is_dir():
+            break
+        if racine not in candidats:
+            candidats.append(racine)
         try:
             for enfant in sorted(racine.iterdir()):
                 if not enfant.is_dir():
@@ -93,9 +99,11 @@ def emplacements_documents() -> list[Path]:
                     continue
                 if enfant.name.lower() in DOSSIERS_TECHNIQUES:
                     continue
-                candidats.append(enfant)
+                if enfant not in candidats:
+                    candidats.append(enfant)
         except OSError:
             pass
+        racine = racine.parent
     vus: set[Path] = set()
     uniques = []
     for chemin in candidats:
